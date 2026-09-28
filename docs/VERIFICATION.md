@@ -1,0 +1,120 @@
+# Verification
+
+A physics game can compile cleanly, render beautifully, and still contain a gap
+nobody can jump. The player therefore ships with enough command-line surface to
+play and screenshot itself, and `make verify` turns that into a pass/fail check.
+
+```bash
+make verify
+```
+
+```
+--- progression ---
+[level] 1/3 PRACTICE clock=75.0
+[state] LevelClear t=15.2 falls=0 clock=59.8
+[level] 2/3 BEGINNER clock=129.8
+[state] LevelClear t=36.6 falls=0 clock=110.6
+[level] 3/3 INTERMEDIATE clock=175.6
+[state] LevelClear t=66.0 falls=3 clock=142.2
+[state] Won t=68.2 falls=3 clock=142.2
+--- falls: 3 ---
+PASS - all three courses cleared
+```
+
+It exits non-zero if the run never reaches `Won`, so it works as a CI gate.
+
+## Player flags
+
+| Flag | Effect |
+|------|--------|
+| `-autostart` | skip the title card |
+| `-demo` | the game plays itself (implies `-autostart`) |
+| `-shots DIR` | write in-engine screenshots to `DIR` on a fixed schedule |
+| `-quitafter SECS` | exit after this many seconds |
+| `-yaw DEG` | initial camera yaw |
+
+```bash
+scripts/run.sh -demo -quitafter 260            # full self-played run
+scripts/run.sh -demo -shots ./shots -quitafter 75
+scripts/run.sh -autostart -yaw 45
+```
+
+Screenshots come from `ScreenCapture.CaptureScreenshot`, so they contain the
+game's framebuffer only — no desktop, no window chrome, and no screen-recording
+permission needed.
+
+## How the demo driver works
+
+`GameDirector.DemoInput()` steers along the course centreline
+(see [Course design](COURSE-DESIGN.md#the-centreline)) with a velocity-matching
+controller rather than full throttle:
+
+```csharp
+Vector3 err = toWaypoint.normalized * CruiseSpeed - currentVelocity;
+Vector3 wish = err.normalized;
+```
+
+That makes it brake into turns and on ice, which is what a human does. Pushing
+at full force instead just pins the marble to the outside of every corner.
+
+The resulting world-space direction is then converted **back** into
+camera-relative stick input:
+
+```csharp
+return new Vector2(Vector3.Dot(wish, camRight), Vector3.Dot(wish, camForward));
+```
+
+so the bot drives correctly at any view angle — including while the player is
+rotating the camera underneath it.
+
+## Log lines
+
+The player writes structured lines to its log, which is what makes failures
+diagnosable rather than merely visible:
+
+```
+[level]   1/3 PRACTICE clock=75.0
+[state]   LevelClear t=15.2 falls=0 clock=59.8
+[death]   FELL OFF course=3 z=122.8 x=-7.0 y=-34.0 lastGround(z=119.9 x=-7.5 y=-10.5)
+```
+
+Deaths are reported in **course space**, so a cluster of identical coordinates
+points straight at the offending metre of level geometry.
+
+## What this actually caught
+
+Four real bugs, none of which produced a compile error or a visual glitch:
+
+**1. Two unjumpable gaps.** Both course 2 and course 3 opened a gap straight off
+a downhill ramp. The marble left the lip already moving downward and fell short
+*even at maximum speed* — 2.94 m of flight for a 3.2 m gap. Fixed by
+`CourseBuilder.Jump()`, which forces a flat launch lip. Full numbers in
+[Course design](COURSE-DESIGN.md#jumps).
+
+**2. Acid sitting on the only route.** Twelve consecutive `DISSOLVED` deaths at
+`z=25.8, x=0.0` — the acid patch was dead centre on the line, and respawning put
+the player back on the same approach. `Acid()` now splices a detour around
+itself into the centreline.
+
+**3. A respawn death loop.** Respawn originally rewound the marble's own position
+history by 1.1 s. Near a gap that reinstates it *in mid-air over the thing that
+killed it*, so it dies again, respawns identically, and burns the whole clock at
+one spot. The giveaway was deaths alternating between two fixed coordinates.
+Respawn now snaps to the recorded course centreline, which is always solid deck.
+
+**4. A split entry with nowhere to go.** The route stepped sideways onto a
+2.2-wide catwalk at the exact z the pit opened, leaving no distance to drift
+across. Two causes: the approach deck was narrower than the catwalks it fed, and
+the previous segment's centre waypoint sat directly over the pit mouth.
+
+The pattern across all four: none of them are visible in a screenshot, and all
+four were found by reading coordinates out of a log.
+
+## Limits
+
+- The bot follows a fixed line, so it exercises completability, not difficulty.
+  A course it clears with 0 falls may still be unpleasant for a human, and one
+  it struggles with may be fine.
+- It does not test the camera controls, the title screen, or restart — those were
+  checked by driving real keypresses into the window with AppleScript.
+- `make verify` is macOS-only because it runs a macOS player.
