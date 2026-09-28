@@ -371,15 +371,21 @@ namespace RollingSteel
             if (path == null || path.Count == 0) return built?.SpawnWorld ?? Vector3.zero;
 
             Vector3 anchor = Marble.LastGrounded;
-            int best = 0;
+            int best = -1;
             float bestD = float.MaxValue;
             for (int i = 0; i < path.Count; i++)
             {
+                if (!built.PathSupported[i]) continue;   // never respawn out over a gap
                 float d = (path[i] - anchor).sqrMagnitude;
                 if (d < bestD) { bestD = d; best = i; }
             }
+            if (best < 0) return built.SpawnWorld;
 
-            return path[Mathf.Max(0, best - 1)] + Vector3.up * 0.4f;
+            // step back one supported waypoint so there is a little run-up
+            for (int i = best - 1; i >= 0; i--)
+                if (built.PathSupported[i]) { best = i; break; }
+
+            return path[best] + Vector3.up * 0.4f;
         }
 
         public void ReachGoal()

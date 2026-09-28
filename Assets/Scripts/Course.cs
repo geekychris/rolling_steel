@@ -154,25 +154,32 @@ namespace RollingSteel
         }
 
         /// Two parallel decks with a pit down the middle.
-        public CourseBuilder Split(float len, float sideWidth, float gapWidth)
+        ///
+        /// Lays a solid apron first. The route has to move sideways onto one of
+        /// the catwalks, and that move has to happen over deck. If the preceding
+        /// segment is a diagonal jog it may not reach that far across, which puts
+        /// the centreline - and therefore respawns - out over the void.
+        public CourseBuilder Split(float len, float sideWidth, float gapWidth, float apron = 5f)
         {
+            float full = gapWidth + 2f * sideWidth;
+            Pad(apron, full);
+
             float off = (gapWidth + sideWidth) * 0.5f;
             Vector3 a = cur, b = cur + new Vector3(0f, 0f, len);
             Slab(a + Vector3.left * off, b + Vector3.left * off, sideWidth, Surface.Normal);
             Slab(a + Vector3.right * off, b + Vector3.right * off, sideWidth, Surface.Normal);
 
             cur = b;
-            width = gapWidth + 2f * sideWidth;
-            lastA = a; lastB = b; lastW = width; lastRot = Quaternion.identity;
-            // Commit to the left deck *before* the pit opens up - stepping sideways
-            // at the split entry gives the marble no room to drift across.
-            // Drop the previous segment's centre point first: it sits at the split
-            // entry, which is directly over the pit.
+            width = full;
+            lastA = a; lastB = b; lastW = full; lastRot = Quaternion.identity;
+
+            // The apron's own centre point sits at the pit mouth. Replace it with a
+            // drift across the apron, then a run down the left catwalk.
             int last = Level.Path.Count - 1;
             if (last >= 0 && Mathf.Abs(Level.Path[last].z - a.z) < 0.001f)
                 Level.Path.RemoveAt(last);
 
-            InsertPath(new Vector3(a.x - off, a.y, a.z - 4.5f));
+            InsertPath(new Vector3(a.x - off, a.y, a.z - apron * 0.55f));
             InsertPath(a + Vector3.left * off);
             InsertPath(b + Vector3.left * off);
             return this;

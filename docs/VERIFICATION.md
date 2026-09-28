@@ -23,6 +23,15 @@ PASS - all three courses cleared
 
 It exits non-zero if the run never reaches `Won`, so it works as a CI gate.
 
+**Run it more than once.** Unity's physics is not frame-rate deterministic, so a
+marginal course can pass one run and fail the next. A bug that only showed up on
+a fresh clone (below) had already passed twice on an identical tree. Treat a
+single green run as weak evidence; four in a row is reasonable.
+
+```bash
+for i in 1 2 3 4; do make verify || break; done
+```
+
 ## Player flags
 
 | Flag | Effect |
@@ -83,7 +92,7 @@ points straight at the offending metre of level geometry.
 
 ## What this actually caught
 
-Four real bugs, none of which produced a compile error or a visual glitch:
+Five real bugs, none of which produced a compile error or a visual glitch:
 
 **1. Two unjumpable gaps.** Both course 2 and course 3 opened a gap straight off
 a downhill ramp. The marble left the lip already moving downward and fell short
@@ -102,13 +111,34 @@ killed it*, so it dies again, respawns identically, and burns the whole clock at
 one spot. The giveaway was deaths alternating between two fixed coordinates.
 Respawn now snaps to the recorded course centreline, which is always solid deck.
 
-**4. A split entry with nowhere to go.** The route stepped sideways onto a
+**4. A centreline waypoint over the void.** `Split()` placed its "drift onto the
+left catwalk" waypoint relative to the split's own centre, assuming the preceding
+deck reached that far across. Where the approach was a diagonal `Jog` still moving
+sideways, it did not — the waypoint sat 1.5 m off the edge, over nothing. Because
+respawn uses the centreline, a fall there respawned the player *into the void*,
+which is unrecoverable.
+
+This one is worth dwelling on: it passed `make verify` twice on the exact tree
+that later failed, and was only caught when the repo was cloned fresh and
+verified again. The flakiness was the tell.
+
+Two fixes went in. `Split()` now lays a solid apron before the pit so the
+sideways move is always over deck; and `LevelBuilder` no longer *trusts* the
+centreline at all — it tests every densified waypoint against the block geometry
+and records whether there is deck beneath it. Respawn only uses supported
+waypoints, so waypoints spanning a `Jump()` gap remain available for steering
+without ever becoming a respawn point.
+
+**5. A split entry with nowhere to go.** The route stepped sideways onto a
 2.2-wide catwalk at the exact z the pit opened, leaving no distance to drift
 across. Two causes: the approach deck was narrower than the catwalks it fed, and
 the previous segment's centre waypoint sat directly over the pit mouth.
 
-The pattern across all four: none of them are visible in a screenshot, and all
-four were found by reading coordinates out of a log.
+The pattern across all five: none of them are visible in a screenshot, and all
+five were found by reading coordinates out of a log. Three of the five were
+respawn-related, which makes sense — respawn is the one system that moves the
+player somewhere they did not drive to, so it is the one place a bad assumption
+about the geometry goes unnoticed until it strands someone.
 
 ## Limits
 

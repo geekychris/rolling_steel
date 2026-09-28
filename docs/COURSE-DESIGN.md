@@ -32,7 +32,7 @@ return b.Done();
 | `Slope(len, drop, width)` | descending ramp |
 | `Jog(dx, depth, width)` | diagonal shuffle sideways while advancing |
 | `Ice(len, width)` / `Rough(len, width)` | low-friction / high-friction deck |
-| `Split(len, sideWidth, gapWidth)` | two parallel decks either side of a pit |
+| `Split(len, sideWidth, gapWidth, apron)` | a solid apron, then two parallel decks either side of a pit |
 | `Gap(len)` | advance without laying deck |
 | `Step(dy)` | sheer drop with no connecting geometry |
 | `Jump(gapLen, drop, lip)` | a flat lip, then a gap, then a step down |
@@ -101,8 +101,18 @@ are handled inside the builder:
 
 - `Acid()` splices in a detour down whichever side of the deck has more room,
   because the patch is deliberately laid *on* the route;
-- `Split()` commits to the left deck 4.5 units *before* the pit opens, and drops
-  the previous segment's centre point — which sits directly over the pit mouth.
+- `Split()` lays a solid **apron** before the pit and drifts onto the left catwalk
+  across it. The apron exists precisely so that sideways move happens over deck.
+  Without it, the drift waypoint is placed relative to the split's centre, which
+  the preceding segment may not reach — if that segment is a diagonal `Jog` still
+  moving laterally, the waypoint lands over the void.
+
+**The rule: every waypoint that a player can respawn onto must have deck under it.**
+`LevelBuilder` enforces this rather than trusting it — it tests each densified
+waypoint against the block geometry and records the answer in
+`BuiltLevel.PathSupported`. Respawn only ever uses supported waypoints, so a
+waypoint spanning a `Jump()` gap can stay on the route for steering without ever
+becoming a respawn point.
 
 If you add a hazard type that blocks the route, give it the same treatment or
 respawning will drop the player onto it.

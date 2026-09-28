@@ -47,7 +47,8 @@ GameDirector.Awake
         └─ LevelBuilder.Build(CourseLibrary.All()[0])
               ├─ a GameObject per Block (primitive cube, scaled + rotated)
               ├─ enemies as spheres with EnemyBall
-              └─ the course centreline, densified, in world space
+              ├─ the course centreline, densified, in world space
+              └─ a per-waypoint "is there deck under this?" flag, used by respawn
 ```
 
 Each frame `GameDirector.Update` ticks the clock, runs the state machine
