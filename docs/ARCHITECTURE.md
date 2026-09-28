@@ -25,13 +25,15 @@ assets under `Assets/Resources/Mat/`, created by an editor script. See
 |--------|------|
 | `Course.cs` | `CourseBuilder` — a cursor-based DSL for laying out a descent, plus the centreline it records |
 | `CourseLibrary.cs` | the three courses, written against that DSL |
-| `LevelBuilder.cs` | turns course data into colliders, renderers and hazards |
+| `LevelBuilder.cs` | turns course data into colliders, renderers and hazards; meshes the swept pieces |
+| `Decor.cs` | abstract floating scenery, themed per level |
+| `Music.cs` | step sequencer and synth; the whole soundtrack |
 | `MarbleController.cs` | rigidbody marble: camera-relative force, ground detection, speed cap |
 | `IsoCamera.cs` | orthographic 3/4 chase camera with live yaw / tilt / zoom |
 | `GameDirector.cs` | state machine, clock, deaths, level progression, CLI hooks |
 | `Hazards.cs` | acid zones, the goal pad, steel chasers and green blobs |
 | `Hud.cs` | IMGUI HUD |
-| `Sfx.cs` | every sound synthesised at startup |
+| `Sfx.cs` | one-shot effects, also synthesised |
 | `MatLib.cs` | material lookup plus physics materials (ice, sand, deck) |
 | `Editor/ProjectSetup.cs` | generates materials, the scene and player settings |
 | `Editor/CIBuild.cs` | headless macOS player build |
@@ -48,12 +50,30 @@ GameDirector.Awake
               ├─ a GameObject per Block (primitive cube, scaled + rotated)
               ├─ enemies as spheres with EnemyBall
               ├─ the course centreline, densified, in world space
-              └─ a per-waypoint "is there deck under this?" flag, used by respawn
+              ├─ a per-waypoint "is this safe to respawn on?" flag
+              └─ Decor.Scatter: themed floating scenery, no colliders
 ```
 
 Each frame `GameDirector.Update` ticks the clock, runs the state machine
 (`Title → Playing → Dying → LevelClear → … → Won / GameOver`) and feeds the
 optional demo driver.
+
+## Two kinds of track geometry
+
+Slabs are `GameObject.CreatePrimitive(Cube)` with a scale and rotation — cheap,
+and the hard edges are what make the isometric view readable.
+
+Curves and eased hills are swept **ribbons**: a list of cross-sections, each with
+a position, a frame and a width, meshed at build time. The frame comes from the
+actual tangent through the point rather than the nominal heading, so the deck
+stays perpendicular to travel however steep or banked it gets.
+
+The mesh is built as four separate vertex groups — top, bottom, and the two sides
+— plus end caps. Because the groups do not share vertices, `RecalculateNormals`
+smooths *along* the sweep (so a curve reads as a curve) while leaving the edges
+crisp. That is what lets a ribbon sit next to a chunky slab without the two
+looking like they came from different games. Collision is a non-convex
+`MeshCollider` over the same mesh.
 
 ## Course space and the camera
 
@@ -103,6 +123,19 @@ A sphere `Rigidbody` and nothing clever:
 
 Rotation is never scripted. The marble rolls because friction between a sphere
 collider and a deck makes it roll.
+
+## Music
+
+`Music.cs` is a small step sequencer (16 steps a bar, eight bars) feeding a
+handful of synth voices: saw with a one-pole lowpass for the bass, variable-duty
+pulse for the arpeggio, two-operator FM for the lead, and shaped noise for the
+drums. Each theme renders into a `float[]`, is normalised and soft-clipped,
+crossfaded at the loop point, and becomes an `AudioClip` — cached, so a theme
+costs nothing after the first time its course is reached.
+
+`-dumpmusic DIR` writes every theme as a WAV, which is how the soundtrack gets
+checked without anyone having to listen to it. See
+[Verification](VERIFICATION.md#checking-the-music).
 
 ## Unity 6 API notes
 

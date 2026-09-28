@@ -5,7 +5,10 @@ descending courses, one shared clock, and a marble that only ever moves because
 you pushed it.
 
 In the spirit of the 1984 Atari cabinet: no jump button, no brakes, just
-momentum, friction and whatever the slope decides to do to you.
+momentum, friction and whatever the slope decides to do to you. Chunky slab
+decks where the drop needs to read clearly, banked curves and eased ramps where
+the course should flow, abstract scenery drifting in the void, and a synthesised
+soundtrack that is generated at startup rather than loaded.
 
 ![Rolling Steel title screen](docs/images/title.png)
 
@@ -31,6 +34,7 @@ and what to do when the editor holds the project lock.
 | `Q` / `E` | turn the view — tap for a 45° step, hold to spin freely |
 | `Z` / `X` | tilt the camera |
 | mouse wheel, `-` / `=` | zoom |
+| `M` | music on / off |
 | `Space` / `Return` | start |
 | `R` | restart the run |
 | `Esc` | quit |
@@ -53,6 +57,26 @@ the clock to zero ends the run — the clock is the lives system.
 | | |
 |---|---|
 | ![Ice section](docs/images/course2-ice.png) | ![All courses clear](docs/images/won.png) |
+
+## Track
+
+Two kinds of geometry, mixed deliberately:
+
+- **Slabs** — chunky boxes. They read well isometrically and make a drop legible.
+- **Swept ribbons** — banked curves and eased hills, generated as meshes. A `Hill`
+  is flat at the top, steepest in the middle and flat again at the bottom, so it
+  meets level deck without a crease; a `Curve` banks into the turn and out again.
+
+Each course also gets a dozen pieces of abstract floating scenery, themed per
+level — a grove, then frost, then embers — placed off to the sides so they frame
+the void without getting in the way. None of it has a collider.
+
+## Music
+
+Four themes, all synthesised at startup from a step sequencer: a square-wave
+bass, a 16th-note arpeggio, a two-operator FM lead and noise percussion, in the
+register early-80s arcade hardware worked in. No audio files anywhere in the
+repo. `M` toggles it.
 
 ## Hazards
 

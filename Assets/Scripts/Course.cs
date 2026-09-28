@@ -3,17 +3,34 @@ using UnityEngine;
 
 namespace RollingSteel
 {
-    /// How a deck slab behaves underfoot (and which material it gets).
+    /// How a deck surface behaves underfoot (and which material it gets).
     public enum Surface { Normal, Rough, Ice, Acid, Goal, Start, Rail }
 
     public enum EnemyKind { Chaser, Wanderer }
 
+    /// A chunky axis-aligned-ish slab. Still the backbone of the courses.
     public struct Block
     {
         public Vector3 Center;      // course space
         public Vector3 Size;
         public Quaternion Rot;
         public Surface Surface;
+    }
+
+    /// One cross-section of a swept track piece.
+    public struct RibbonNode
+    {
+        public Vector3 P;           // centre of the top surface
+        public Quaternion Rot;      // local forward = travel, local up = surface normal
+        public float Width;
+    }
+
+    /// A swept track piece: curves and eased ramps, meshed rather than boxed.
+    public class Ribbon
+    {
+        public readonly List<RibbonNode> Nodes = new List<RibbonNode>();
+        public Surface Surface;
+        public float Thickness;
     }
 
     public struct EnemySpec
@@ -29,20 +46,24 @@ namespace RollingSteel
         public string Name;
         public float TimeBonus;     // seconds added to the clock on entry
         public Vector3 Spawn;       // course space
+        public int DecorTheme;      // which set of floating scenery to scatter
+        public int MusicTheme;      // which synthesised track to play
+
         public readonly List<Block> Blocks = new List<Block>();
+        public readonly List<Ribbon> Ribbons = new List<Ribbon>();
         public readonly List<EnemySpec> Enemies = new List<EnemySpec>();
-        /// Centreline of the route, in course space. Used by the demo driver and
-        /// handy for anything else that needs to know where the course actually goes.
+
+        /// Centreline of the route, in course space and in travel order. Used by
+        /// respawn and by the demo driver.
         public readonly List<Vector3> Path = new List<Vector3>();
     }
 
     /// Cursor-based course builder. The cursor sits at the centre of the leading
-    /// edge of the deck, level with the deck's top surface, so every segment
-    /// automatically joins the previous one.
+    /// edge of the deck, level with its top surface, and carries a heading, so
+    /// every piece joins the previous one and curves can turn the course.
     ///
-    /// Course space: +Z runs away from the camera (down-course), +X is screen
-    /// right, -Y is down. LevelBuilder yaws the whole course 45 degrees to get
-    /// the classic isometric presentation.
+    /// Local frame: +Z is down-course, +X is to the cursor's right, -Y is down.
+    /// LevelBuilder yaws the whole course 45 degrees for the isometric look.
     public class CourseBuilder
     {
         public const float Thickness = 1.2f;
@@ -51,7 +72,13 @@ namespace RollingSteel
         public readonly Level Level = new Level();
 
         Vector3 cur;
+        float heading;              // degrees; 0 = +Z
         float width;
+
+        // start of the piece currently being decorated, so Acid() can splice its
+        // detour into the centreline in travel order rather than call order
+        Vector3 segStart;
+        int segStartIdx;
 
         // extent of the most recently built slab, so Rails() can hug it
         Vector3 lastA, lastB;
@@ -60,6 +87,11 @@ namespace RollingSteel
 
         public Vector3 Cursor => cur;
         public float Width => width;
+        public float Heading => heading;
+
+        Quaternion Frame => Quaternion.AngleAxis(heading, Vector3.up);
+        Vector3 Fwd => Frame * Vector3.forward;
+        Vector3 Right => Frame * Vector3.right;
 
         public CourseBuilder(string name, float timeBonus, float startWidth)
         {
@@ -71,6 +103,15 @@ namespace RollingSteel
             Level.Path.Add(cur);
         }
 
+        public CourseBuilder Theme(int decor, int music)
+        {
+            Level.DecorTheme = decor;
+            Level.MusicTheme = music;
+            return this;
+        }
+
+        // ---- slabs -------------------------------------------------------
+
         void Slab(Vector3 a, Vector3 b, float w, Surface s)
         {
             Vector3 dir = b - a;
@@ -80,7 +121,7 @@ namespace RollingSteel
             Quaternion rot = Quaternion.LookRotation(dir / len, Vector3.up);
             Vector3 up = rot * Vector3.up;
 
-            // a and b are points on the *top* surface, so drop the box by half its depth
+            // a and b sit on the *top* surface, so drop the box by half its depth
             Level.Blocks.Add(new Block
             {
                 Center = (a + b) * 0.5f - up * (Thickness * 0.5f),
@@ -92,9 +133,13 @@ namespace RollingSteel
             lastA = a; lastB = b; lastW = w; lastRot = rot;
         }
 
-        /// Build a slab from the cursor to cursor+delta and move the cursor there.
-        public CourseBuilder Segment(Vector3 delta, float w, Surface s = Surface.Normal)
+        /// Build a slab from the cursor along `localDelta` (cursor frame) and
+        /// move the cursor there.
+        public CourseBuilder Segment(Vector3 localDelta, float w, Surface s = Surface.Normal)
         {
+            Vector3 delta = Frame * localDelta;
+            segStart = cur;
+            segStartIdx = Level.Path.Count - 1;
             Slab(cur, cur + delta, w, s);
             cur += delta;
             width = w;
@@ -114,7 +159,7 @@ namespace RollingSteel
         public CourseBuilder Rough(float len, float w = -1f)
             => Segment(new Vector3(0f, 0f, len), w < 0f ? width : w, Surface.Rough);
 
-        /// Descending ramp: travels `len` down-course while losing `drop` height.
+        /// Straight descending ramp with a constant incline (the chunky look).
         public CourseBuilder Slope(float len, float drop, float w = -1f)
             => Segment(new Vector3(0f, -drop, len), w < 0f ? width : w);
 
@@ -122,10 +167,10 @@ namespace RollingSteel
         public CourseBuilder Jog(float dx, float depth, float w = -1f)
             => Segment(new Vector3(dx, 0f, depth), w < 0f ? width : w);
 
-        /// Open pit: advance the cursor without laying any deck.
+        /// Open pit: advance without laying any deck.
         public CourseBuilder Gap(float len)
         {
-            cur.z += len;
+            cur += Fwd * len;
             Level.Path.Add(cur);
             return this;
         }
@@ -153,6 +198,136 @@ namespace RollingSteel
             return this;
         }
 
+        // ---- swept pieces ------------------------------------------------
+
+        static float Ease(float t) => t * t * (3f - 2f * t);
+
+        /// Build a swept ribbon through `pts`, rolled by `rolls` (degrees), and
+        /// take the frame from the actual tangent so the deck stays perpendicular
+        /// to the direction of travel however steep it gets.
+        Ribbon Sweep(List<Vector3> pts, List<float> rolls, float w, Surface s, float thickness)
+        {
+            var rib = new Ribbon { Surface = s, Thickness = thickness };
+
+            for (int i = 0; i < pts.Count; i++)
+            {
+                Vector3 prev = pts[Mathf.Max(0, i - 1)];
+                Vector3 next = pts[Mathf.Min(pts.Count - 1, i + 1)];
+                Vector3 tangent = next - prev;
+                if (tangent.sqrMagnitude < 1e-6f) tangent = Fwd;
+
+                Quaternion frame = Quaternion.LookRotation(tangent.normalized, Vector3.up)
+                                 * Quaternion.AngleAxis(rolls[i], Vector3.forward);
+
+                rib.Nodes.Add(new RibbonNode { P = pts[i], Rot = frame, Width = w });
+            }
+
+            Level.Ribbons.Add(rib);
+            return rib;
+        }
+
+        /// Raised lips down both edges of a ribbon.
+        void RibbonKerbs(Ribbon rib, float h)
+        {
+            const float kw = 0.4f;
+            for (int side = -1; side <= 1; side += 2)
+            {
+                var kerb = new Ribbon { Surface = Surface.Rail, Thickness = h };
+                foreach (var n in rib.Nodes)
+                {
+                    kerb.Nodes.Add(new RibbonNode
+                    {
+                        P = n.P + n.Rot * new Vector3(side * (n.Width + kw) * 0.5f, h, 0f),
+                        Rot = n.Rot,
+                        Width = kw,
+                    });
+                }
+                Level.Ribbons.Add(kerb);
+            }
+        }
+
+        /// A banked horizontal curve. Positive angle turns right, negative left.
+        /// The bank eases in and out, so the ends still meet flat deck cleanly.
+        public CourseBuilder Curve(float radius, float angleDeg, float drop = 0f,
+                                   float w = -1f, float bank = 0f, bool rails = false,
+                                   Surface s = Surface.Normal)
+        {
+            float wid = w < 0f ? width : w;
+            float sign = Mathf.Sign(angleDeg);
+            float sweep = Mathf.Abs(angleDeg);
+            if (sweep < 0.01f || radius <= 0.01f) return this;
+
+            Vector3 centre = cur + Right * (radius * sign);
+            Vector3 radial = cur - centre;
+            radial.y = 0f;
+
+            int steps = Mathf.Max(8, Mathf.CeilToInt(sweep / 4f));
+            var pts = new List<Vector3>(steps + 1);
+            var rolls = new List<float>(steps + 1);
+
+            for (int i = 0; i <= steps; i++)
+            {
+                float t = (float)i / steps;
+                Vector3 p = centre + Quaternion.AngleAxis(sweep * t * sign, Vector3.up) * radial;
+                p.y = cur.y - drop * Ease(t);
+                pts.Add(p);
+
+                // ramp the bank in and out so the joins stay level
+                rolls.Add(-bank * sign * Mathf.Sin(t * Mathf.PI));
+            }
+
+            var rib = Sweep(pts, rolls, wid, s, Thickness);
+            if (rails) RibbonKerbs(rib, 0.7f);
+
+            for (int i = 1; i < pts.Count; i++) Level.Path.Add(pts[i]);
+
+            cur = pts[pts.Count - 1];
+            heading += angleDeg;
+            width = wid;
+            return this;
+        }
+
+        /// A straight ramp whose incline varies: flat at the top, steepest in the
+        /// middle, flat at the bottom. Reads much better than a constant slope
+        /// where it meets level deck, and is far kinder to jump physics.
+        public CourseBuilder Hill(float len, float drop, float w = -1f,
+                                  bool rails = false, Surface s = Surface.Normal)
+        {
+            float wid = w < 0f ? width : w;
+            int steps = Mathf.Max(8, Mathf.CeilToInt(len / 1.5f));
+
+            var pts = new List<Vector3>(steps + 1);
+            var rolls = new List<float>(steps + 1);
+            for (int i = 0; i <= steps; i++)
+            {
+                float t = (float)i / steps;
+                Vector3 p = cur + Fwd * (len * t);
+                p.y = cur.y - drop * Ease(t);
+                pts.Add(p);
+                rolls.Add(0f);
+            }
+
+            var rib = Sweep(pts, rolls, wid, s, Thickness);
+            if (rails) RibbonKerbs(rib, 0.7f);
+
+            for (int i = 1; i < pts.Count; i++) Level.Path.Add(pts[i]);
+
+            cur = pts[pts.Count - 1];
+            width = wid;
+            return this;
+        }
+
+        /// An S-bend: two opposed curves, ending on the original heading.
+        public CourseBuilder Chicane(float radius, float angleDeg, float drop = 0f,
+                                     float w = -1f, float bank = 0f, bool rails = false)
+        {
+            Curve(radius, angleDeg, drop * 0.5f, w, bank, rails);
+            Curve(radius, -angleDeg, drop * 0.5f, w, bank, rails);
+            return this;
+        }
+
+        // ---- structure ---------------------------------------------------
+
         /// Two parallel decks with a pit down the middle.
         ///
         /// Lays a solid apron first. The route has to move sideways onto one of
@@ -165,27 +340,24 @@ namespace RollingSteel
             Pad(apron, full);
 
             float off = (gapWidth + sideWidth) * 0.5f;
-            Vector3 a = cur, b = cur + new Vector3(0f, 0f, len);
-            Slab(a + Vector3.left * off, b + Vector3.left * off, sideWidth, Surface.Normal);
-            Slab(a + Vector3.right * off, b + Vector3.right * off, sideWidth, Surface.Normal);
+            Vector3 a = cur, b = cur + Fwd * len;
+            Slab(a - Right * off, b - Right * off, sideWidth, Surface.Normal);
+            Slab(a + Right * off, b + Right * off, sideWidth, Surface.Normal);
 
             cur = b;
             width = full;
-            lastA = a; lastB = b; lastW = full; lastRot = Quaternion.identity;
+            lastA = a; lastB = b; lastW = full; lastRot = Frame;
 
             // The apron's own centre point sits at the pit mouth. Replace it with a
             // drift across the apron, then a run down the left catwalk.
-            int last = Level.Path.Count - 1;
-            if (last >= 0 && Mathf.Abs(Level.Path[last].z - a.z) < 0.001f)
-                Level.Path.RemoveAt(last);
-
-            InsertPath(new Vector3(a.x - off, a.y, a.z - apron * 0.55f));
-            InsertPath(a + Vector3.left * off);
-            InsertPath(b + Vector3.left * off);
+            Level.Path.RemoveAt(Level.Path.Count - 1);
+            Level.Path.Add(a - Right * off - Fwd * (apron * 0.55f));
+            Level.Path.Add(a - Right * off);
+            Level.Path.Add(b - Right * off);
             return this;
         }
 
-        /// Low kerbs along the edges of the segment just built.
+        /// Low kerbs along the edges of the slab just built.
         public CourseBuilder Rails(bool left = true, bool right = true, float h = 0.7f)
         {
             const float rw = 0.35f;
@@ -210,41 +382,45 @@ namespace RollingSteel
             return this;
         }
 
-        /// Keep the centreline sorted by z. The course only ever advances in z,
-        /// so this is enough to splice a detour into the right place.
-        void InsertPath(Vector3 p)
+        /// Splice a detour point into the current segment, ordered by how far
+        /// along that segment it sits. Two hazards on one run are declared in
+        /// whatever order reads best, but the route has to visit them in the
+        /// order the marble will actually meet them.
+        void InsertAlong(Vector3 p)
         {
-            int i = Level.Path.Count;
-            while (i > 0 && Level.Path[i - 1].z > p.z) i--;
+            Vector3 fwd = Fwd;
+            float key = Vector3.Dot(p - segStart, fwd);
+            int i = segStartIdx + 1;
+            while (i < Level.Path.Count - 1 && Vector3.Dot(Level.Path[i] - segStart, fwd) <= key) i++;
             Level.Path.Insert(i, p);
         }
 
-        /// Acid patch laid on top of the flat segment just built. The patch sits
-        /// on the route on purpose - dodging it is the point - so the centreline
-        /// gets a detour spliced in down whichever side of the deck has room.
-        public CourseBuilder Acid(float w, float depth, float lateral = 0f, float back = 0f)
+        /// Acid patch laid on top of the flat piece just built. The patch sits on
+        /// the route on purpose - dodging it is the point - so the centreline gets
+        /// a detour spliced in down whichever side of the deck has room.
+        public CourseBuilder Acid(float w, float depth, float lateral = 0f, float back = 0f,
+                                  float leadIn = 4f)
         {
-            float zc = cur.z - (depth * 0.5f + back);
-            Vector3 c = new Vector3(cur.x + lateral, cur.y + 0.06f, zc);
+            float backZ = depth * 0.5f + back;
+            Vector3 c = cur + Frame * new Vector3(lateral, 0.06f, -backZ);
 
             Level.Blocks.Add(new Block
             {
                 Center = c,
                 Size = new Vector3(w, 0.12f, depth),
-                Rot = Quaternion.identity,
+                Rot = Frame,
                 Surface = Surface.Acid,
             });
 
-            float deckL = cur.x - width * 0.5f, deckR = cur.x + width * 0.5f;
-            float acidL = c.x - w * 0.5f, acidR = c.x + w * 0.5f;
+            float deckL = -width * 0.5f, deckR = width * 0.5f;
+            float acidL = lateral - w * 0.5f, acidR = lateral + w * 0.5f;
             float leftGap = acidL - deckL, rightGap = deckR - acidR;
+            float bypass = leftGap > rightGap ? deckL + leftGap * 0.5f : deckR - rightGap * 0.5f;
 
-            float bypassX = leftGap > rightGap
-                ? deckL + leftGap * 0.5f
-                : deckR - rightGap * 0.5f;
-
-            InsertPath(new Vector3(bypassX, cur.y, zc - depth * 0.5f - 1.5f));
-            InsertPath(new Vector3(bypassX, cur.y, zc + depth * 0.5f + 1.5f));
+            // The detour has to start far enough back that the marble can
+            // actually get across before it reaches the patch.
+            InsertAlong(cur + Frame * new Vector3(bypass, 0f, -(backZ + depth * 0.5f + leadIn)));
+            InsertAlong(cur + Frame * new Vector3(bypass, 0f, -(backZ - depth * 0.5f - 1.5f)));
             return this;
         }
 
@@ -253,7 +429,7 @@ namespace RollingSteel
             Level.Enemies.Add(new EnemySpec
             {
                 Kind = kind,
-                Pos = cur + new Vector3(lateral, MarbleRadius + 0.3f, -back),
+                Pos = cur + Frame * new Vector3(lateral, MarbleRadius + 0.3f, -back),
                 Range = range,
                 Speed = speed,
             });

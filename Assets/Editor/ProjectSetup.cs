@@ -45,6 +45,13 @@ public static class ProjectSetup
         Mat("Marble", new Color(0.86f, 0.88f, 0.93f), 0.95f, 0.86f);
         Mat("Steel", new Color(0.33f, 0.34f, 0.39f), 0.90f, 0.70f);
         Mat("Blob", new Color(0.34f, 0.94f, 0.40f), 0.00f, 0.30f, new Color(0.09f, 0.42f, 0.11f));
+
+        // floating scenery
+        Mat("Bark", new Color(0.32f, 0.24f, 0.18f), 0.00f, 0.12f);
+        Mat("Leaf", new Color(0.24f, 0.55f, 0.30f), 0.00f, 0.22f);
+        Mat("Stone", new Color(0.26f, 0.27f, 0.33f), 0.05f, 0.18f);
+        Mat("Crystal", new Color(0.55f, 0.82f, 0.95f), 0.20f, 0.88f, new Color(0.05f, 0.15f, 0.22f));
+        Mat("Glow", new Color(1.00f, 0.66f, 0.28f), 0.00f, 0.55f, new Color(0.60f, 0.30f, 0.06f));
     }
 
     static void Mat(string name, Color col, float metallic, float smooth, Color? emission = null)
