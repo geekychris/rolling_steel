@@ -12,6 +12,8 @@ namespace RollingSteel
         public float KillY;
         public readonly List<EnemyBall> Enemies = new List<EnemyBall>();
         public readonly List<Vector3> PathWorld = new List<Vector3>();
+        /// Parallel to PathWorld: is there solid deck under this point?
+        public readonly List<bool> PathSupported = new List<bool>();
     }
 
     public static class LevelBuilder
@@ -75,6 +77,7 @@ namespace RollingSteel
             // Densify the centreline: with only segment endpoints, anything
             // following it cuts corners and clips the edge of narrow decks.
             var pts = lvl.Path;
+            var dense = new List<Vector3>();
             for (int i = 0; i < pts.Count; i++)
             {
                 if (i > 0)
@@ -82,10 +85,16 @@ namespace RollingSteel
                     Vector3 a = pts[i - 1], b = pts[i];
                     int steps = Mathf.Max(1, Mathf.CeilToInt(Vector3.Distance(a, b) / 2f));
                     for (int k = 1; k < steps; k++)
-                        built.PathWorld.Add(root.transform.TransformPoint(
-                            Vector3.Lerp(a, b, (float)k / steps) + Vector3.up * 0.5f));
+                        dense.Add(Vector3.Lerp(a, b, (float)k / steps));
                 }
-                built.PathWorld.Add(root.transform.TransformPoint(pts[i] + Vector3.up * 0.5f));
+                dense.Add(pts[i]);
+            }
+
+            foreach (var p in dense)
+            {
+                Vector3 lifted = p + Vector3.up * 0.5f;
+                built.PathWorld.Add(root.transform.TransformPoint(lifted));
+                built.PathSupported.Add(HasDeckUnder(lvl, lifted));
             }
 
             built.SpawnWorld = root.transform.TransformPoint(lvl.Spawn);
@@ -93,6 +102,26 @@ namespace RollingSteel
             built.GoalZ = goalZ;
             built.KillY = lowest - 14f;
             return built;
+        }
+
+        /// Is there solid deck directly under this centreline point? Waypoints
+        /// spanning a jump gap legitimately are not, which is why respawn only
+        /// ever uses supported ones - landing a respawn in mid-air over the thing
+        /// that just killed you is an unwinnable loop.
+        static bool HasDeckUnder(Level lvl, Vector3 p)
+        {
+            foreach (var b in lvl.Blocks)
+            {
+                if (b.Surface == Surface.Acid || b.Surface == Surface.Rail) continue;
+
+                Vector3 local = Quaternion.Inverse(b.Rot) * (p - b.Center);
+                if (Mathf.Abs(local.x) > b.Size.x * 0.5f) continue;
+                if (Mathf.Abs(local.z) > b.Size.z * 0.5f) continue;
+
+                float top = b.Size.y * 0.5f;
+                if (local.y > top - 0.4f && local.y < top + 1.8f) return true;
+            }
+            return false;
         }
 
         static void AddGoalTrigger(Transform root, Block deck)
