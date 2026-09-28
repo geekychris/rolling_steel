@@ -15,7 +15,7 @@ namespace RollingSteel
         public static GameDirector Instance { get; private set; }
 
         const float DeathPenalty = 3f;
-        const float DyingHold = 0.9f;
+        const float DyingHold = 1.35f;   // long enough for the shatter to read
         const float ClearHold = 2.2f;
 
         public GameState State { get; private set; } = GameState.Title;
@@ -39,13 +39,20 @@ namespace RollingSteel
         bool musicMuted;
         float stateTimer;
         float lastWarnBeep;
+        bool fallWhistle;
+
+        /// Screen flash, driven by the HUD. Decays on unscaled time.
+        public float Flash { get; private set; }
+        public Color FlashColor { get; private set; } = Color.white;
 
         // ---- headless capture / demo hooks --------------------------------
         bool demoMode, autoStart;
         float startYaw;
         string shotDir, musicDumpDir;
         float quitAfter = -1f;
-        readonly float[] shotTimes = { 1f, 6f, 11f, 20f, 27f, 33f, 45f, 54f, 62f, 67.5f };
+        float[] shotTimes = { 1f, 6f, 11f, 20f, 27f, 33f, 45f, 54f, 62f, 67.5f };
+        float killAt = -1f;
+        bool killTriggered;
         int nextShot;
         float clock;
         int demoWp;
@@ -106,6 +113,21 @@ namespace RollingSteel
                     case "-yaw": if (i + 1 < a.Length) float.TryParse(a[++i], out startYaw); break;
                     case "-dumpmusic": if (i + 1 < a.Length) musicDumpDir = a[++i]; break;
                     case "-mute": musicMuted = true; break;
+
+                    // dev aids: force a wipeout, and choose when screenshots land,
+                    // so the death effects can be captured without waiting for the
+                    // demo driver to make a mistake.
+                    case "-killat": if (i + 1 < a.Length) float.TryParse(a[++i], out killAt); break;
+                    case "-shotat":
+                        if (i + 1 < a.Length)
+                        {
+                            var parts = a[++i].Split(',');
+                            var times = new List<float>();
+                            foreach (var t in parts)
+                                if (float.TryParse(t, out var v)) times.Add(v);
+                            if (times.Count > 0) shotTimes = times.ToArray();
+                        }
+                        break;
                     case "-quitafter": if (i + 1 < a.Length) float.TryParse(a[++i], out quitAfter); break;
                 }
             }
@@ -189,6 +211,9 @@ namespace RollingSteel
             PlayTheme(levels[index].MusicTheme);
 
             Marble.Frozen = false;
+            Marble.SetVisible(true);
+            fallWhistle = false;
+            Time.timeScale = 1f;
             Marble.Teleport(built.SpawnWorld);
             isoCam.Hold = false;
             isoCam.Snap();
@@ -199,11 +224,18 @@ namespace RollingSteel
 
         void Update()
         {
-            clock += Time.deltaTime;
-            stateTimer += Time.deltaTime;
+            clock += Time.unscaledDeltaTime;
+            stateTimer += Time.unscaledDeltaTime;
+            Flash = Mathf.MoveTowards(Flash, 0f, Time.unscaledDeltaTime * 3.4f);
 
             HandleKeys();
             HandleCapture();
+
+            if (killAt > 0f && !killTriggered && clock >= killAt && State == GameState.Playing)
+            {
+                killTriggered = true;
+                KillMarble("FELL OFF");
+            }
 
             if (demoMode && Marble != null)
             {
@@ -214,7 +246,11 @@ namespace RollingSteel
             switch (State)
             {
                 case GameState.Playing: TickPlaying(); break;
-                case GameState.Dying: if (stateTimer >= DyingHold) Respawn(); break;
+                case GameState.Dying:
+                    // ease back out of slow motion rather than snapping
+                    Time.timeScale = Mathf.Lerp(0.3f, 1f, Mathf.Clamp01(stateTimer / DyingHold));
+                    if (stateTimer >= DyingHold) Respawn();
+                    break;
                 case GameState.LevelClear: if (stateTimer >= ClearHold) Advance(); break;
             }
 
@@ -288,7 +324,21 @@ namespace RollingSteel
                 return;
             }
 
-            if (Marble.transform.position.y < KillY) KillMarble("FELL OFF");
+            // How far it has dropped since it last had contact. Reacting to this
+            // rather than an absolute floor means the fall is still on screen when
+            // the camera stops following, so the wipeout is actually visible.
+            float dropped = Marble.LastGrounded.y - Marble.transform.position.y;
+            bool airborne = !Marble.Grounded;
+
+            if (airborne && dropped > 4.5f && !fallWhistle)
+            {
+                fallWhistle = true;
+                Sfx.Play(Sfx.Clip.Fall);
+            }
+            if (!airborne || dropped < 1f) fallWhistle = false;
+
+            if ((airborne && dropped > 12f) || Marble.transform.position.y < KillY)
+                KillMarble("FELL OFF");
         }
 
         void HandleKeys()
@@ -355,6 +405,7 @@ namespace RollingSteel
 
         void Enter(GameState s)
         {
+            if (s != GameState.Dying) Time.timeScale = 1f;
             State = s;
             stateTimer = 0f;
             if (s == GameState.LevelClear || s == GameState.GameOver || s == GameState.Won)
@@ -384,14 +435,43 @@ namespace RollingSteel
             DeathReason = reason;
             Deaths++;
             TimeLeft = Mathf.Max(0f, TimeLeft - DeathPenalty);
+
+            Vector3 at = Marble.transform.position;
             Marble.Frozen = true;
+            Marble.SetVisible(false);
             isoCam.Hold = true;
+            isoCam.Shake(1.4f);
+
+            DeathFx.Burst(at, "Marble", 16, force: 12f);
+            Sfx.Play(Sfx.Clip.Shatter);
+
+            switch (reason)
+            {
+                case "DISSOLVED":
+                    Sfx.Play(Sfx.Clip.Sizzle);
+                    Flash = 0.85f; FlashColor = new Color(0.35f, 1f, 0.4f);
+                    break;
+                case "EATEN":
+                    Sfx.Play(Sfx.Clip.Chomp);
+                    Flash = 0.85f; FlashColor = new Color(0.5f, 1f, 0.55f);
+                    break;
+                default:
+                    if (!fallWhistle) Sfx.Play(Sfx.Clip.Fall);
+                    Flash = 0.9f; FlashColor = new Color(1f, 0.45f, 0.35f);
+                    break;
+            }
+
+            // a beat of slow motion so the debris reads before the respawn
+            Time.timeScale = 0.3f;
             Enter(GameState.Dying);
-            Sfx.Play(Sfx.Clip.Death);
         }
 
         void Respawn()
         {
+            Time.timeScale = 1f;
+            fallWhistle = false;
+            Marble.SetVisible(true);
+
             if (TimeLeft <= 0f)
             {
                 Enter(GameState.GameOver);

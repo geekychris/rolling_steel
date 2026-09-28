@@ -67,6 +67,11 @@ Two kinds of geometry, mixed deliberately:
   is flat at the top, steepest in the middle and flat again at the bottom, so it
   meets level deck without a crease; a `Curve` banks into the turn and out again.
 
+Pieces link smoothly rather than merely abutting: widths ease across a piece
+instead of stepping at its first cross-section, banks and gradients arrive and
+leave at zero, and every piece is grown fractionally at each end so it buries
+itself in its neighbour instead of leaving a hairline where the faces meet.
+
 Each course also gets a dozen pieces of abstract floating scenery, themed per
 level — a grove, then frost, then embers — placed off to the sides so they frame
 the void without getting in the way. None of it has a collider.
@@ -77,6 +82,17 @@ Four themes, all synthesised at startup from a step sequencer: a square-wave
 bass, a 16th-note arpeggio, a two-operator FM lead and noise percussion, in the
 register early-80s arcade hardware worked in. No audio files anywhere in the
 repo. `M` toggles it.
+
+## Wipeouts
+
+Falling off is meant to hurt. The marble shatters into physical shards that
+bounce off the deck you just left, bright sparks scatter, the screen takes a
+coloured hit, the camera gets knocked, and a beat of slow motion eases back to
+normal speed before you are set down again. Each way of dying sounds different -
+a falling whistle, an acid sizzle, a blob's gulp - so you know what got you
+without reading the banner.
+
+![A wipeout, frame by frame](docs/images/wipeout.png)
 
 ## Hazards
 

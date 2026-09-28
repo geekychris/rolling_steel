@@ -68,6 +68,10 @@ namespace RollingSteel
     {
         public const float Thickness = 1.2f;
         public const float MarbleRadius = 0.5f;
+        /// Pieces are grown very slightly at each end so they bury themselves in
+        /// their neighbours. Two pieces that merely touch leave a visible hairline
+        /// where the coincident end faces fight.
+        const float Overlap = 0.06f;
 
         public readonly Level Level = new Level();
 
@@ -80,10 +84,12 @@ namespace RollingSteel
         Vector3 segStart;
         int segStartIdx;
 
-        // extent of the most recently built slab, so Rails() can hug it
+        // the most recently built piece, so Rails() can kerb whichever it was
         Vector3 lastA, lastB;
         float lastW;
         Quaternion lastRot = Quaternion.identity;
+        Ribbon lastRibbon;
+        bool lastIsRibbon;
 
         public Vector3 Cursor => cur;
         public float Width => width;
@@ -125,12 +131,13 @@ namespace RollingSteel
             Level.Blocks.Add(new Block
             {
                 Center = (a + b) * 0.5f - up * (Thickness * 0.5f),
-                Size = new Vector3(w, Thickness, len),
+                Size = new Vector3(w, Thickness, len + 2f * Overlap),
                 Rot = rot,
                 Surface = s,
             });
 
             lastA = a; lastB = b; lastW = w; lastRot = rot;
+            lastIsRibbon = false;
         }
 
         /// Build a slab from the cursor along `localDelta` (cursor frame) and
@@ -140,7 +147,32 @@ namespace RollingSteel
             Vector3 delta = Frame * localDelta;
             segStart = cur;
             segStartIdx = Level.Path.Count - 1;
-            Slab(cur, cur + delta, w, s);
+
+            // A width change on a straight is just as visible as one on a curve.
+            // Sweep it instead of boxing it - but only for running surfaces: the
+            // start and goal pads must stay slabs, because the goal trigger is
+            // attached to the block.
+            bool taperable = s == Surface.Normal || s == Surface.Ice || s == Surface.Rough;
+            if (taperable && Mathf.Abs(w - width) > 0.01f)
+            {
+                int steps = Mathf.Max(4, Mathf.CeilToInt(delta.magnitude / 2f));
+                var pts = new List<Vector3>(steps + 1);
+                var rolls = new List<float>(steps + 1);
+                var ws = new List<float>(steps + 1);
+                for (int i = 0; i <= steps; i++)
+                {
+                    float t = (float)i / steps;
+                    pts.Add(cur + delta * t);
+                    rolls.Add(0f);
+                    ws.Add(Mathf.Lerp(width, w, Ease(t)));
+                }
+                Sweep(pts, rolls, ws, s, Thickness);
+            }
+            else
+            {
+                Slab(cur, cur + delta, w, s);
+            }
+
             cur += delta;
             width = w;
             Level.Path.Add(cur);
@@ -205,8 +237,15 @@ namespace RollingSteel
         /// Build a swept ribbon through `pts`, rolled by `rolls` (degrees), and
         /// take the frame from the actual tangent so the deck stays perpendicular
         /// to the direction of travel however steep it gets.
-        Ribbon Sweep(List<Vector3> pts, List<float> rolls, float w, Surface s, float thickness)
+        Ribbon Sweep(List<Vector3> pts, List<float> rolls, List<float> widths, Surface s, float thickness)
         {
+            // extend a touch past each end, so the caps sit inside the neighbours
+            int last = pts.Count - 1;
+            Vector3 head = (pts[0] - pts[1]).normalized * Overlap;
+            Vector3 tail = (pts[last] - pts[last - 1]).normalized * Overlap;
+            pts.Insert(0, pts[0] + head); rolls.Insert(0, rolls[0]); widths.Insert(0, widths[0]);
+            pts.Add(pts[pts.Count - 1] + tail); rolls.Add(rolls[rolls.Count - 1]); widths.Add(widths[widths.Count - 1]);
+
             var rib = new Ribbon { Surface = s, Thickness = thickness };
 
             for (int i = 0; i < pts.Count; i++)
@@ -219,19 +258,22 @@ namespace RollingSteel
                 Quaternion frame = Quaternion.LookRotation(tangent.normalized, Vector3.up)
                                  * Quaternion.AngleAxis(rolls[i], Vector3.forward);
 
-                rib.Nodes.Add(new RibbonNode { P = pts[i], Rot = frame, Width = w });
+                rib.Nodes.Add(new RibbonNode { P = pts[i], Rot = frame, Width = widths[i] });
             }
 
             Level.Ribbons.Add(rib);
+            lastRibbon = rib;
+            lastIsRibbon = true;
             return rib;
         }
 
         /// Raised lips down both edges of a ribbon.
-        void RibbonKerbs(Ribbon rib, float h)
+        void RibbonKerbs(Ribbon rib, float h, bool left = true, bool right = true)
         {
             const float kw = 0.4f;
             for (int side = -1; side <= 1; side += 2)
             {
+                if (side < 0 ? !left : !right) continue;
                 var kerb = new Ribbon { Surface = Surface.Rail, Thickness = h };
                 foreach (var n in rib.Nodes)
                 {
@@ -253,6 +295,7 @@ namespace RollingSteel
                                    Surface s = Surface.Normal)
         {
             float wid = w < 0f ? width : w;
+            float w0 = width;
             float sign = Mathf.Sign(angleDeg);
             float sweep = Mathf.Abs(angleDeg);
             if (sweep < 0.01f || radius <= 0.01f) return this;
@@ -264,6 +307,7 @@ namespace RollingSteel
             int steps = Mathf.Max(8, Mathf.CeilToInt(sweep / 4f));
             var pts = new List<Vector3>(steps + 1);
             var rolls = new List<float>(steps + 1);
+            var ws = new List<float>(steps + 1);
 
             for (int i = 0; i <= steps; i++)
             {
@@ -274,9 +318,13 @@ namespace RollingSteel
 
                 // ramp the bank in and out so the joins stay level
                 rolls.Add(-bank * sign * Mathf.Sin(t * Mathf.PI));
+
+                // ease the width across too - a step at the first node is a
+                // notch in the edge of the track exactly where two pieces meet
+                ws.Add(Mathf.Lerp(w0, wid, Ease(t)));
             }
 
-            var rib = Sweep(pts, rolls, wid, s, Thickness);
+            var rib = Sweep(pts, rolls, ws, s, Thickness);
             if (rails) RibbonKerbs(rib, 0.7f);
 
             for (int i = 1; i < pts.Count; i++) Level.Path.Add(pts[i]);
@@ -294,10 +342,12 @@ namespace RollingSteel
                                   bool rails = false, Surface s = Surface.Normal)
         {
             float wid = w < 0f ? width : w;
+            float w0 = width;
             int steps = Mathf.Max(8, Mathf.CeilToInt(len / 1.5f));
 
             var pts = new List<Vector3>(steps + 1);
             var rolls = new List<float>(steps + 1);
+            var ws = new List<float>(steps + 1);
             for (int i = 0; i <= steps; i++)
             {
                 float t = (float)i / steps;
@@ -305,9 +355,10 @@ namespace RollingSteel
                 p.y = cur.y - drop * Ease(t);
                 pts.Add(p);
                 rolls.Add(0f);
+                ws.Add(Mathf.Lerp(w0, wid, Ease(t)));
             }
 
-            var rib = Sweep(pts, rolls, wid, s, Thickness);
+            var rib = Sweep(pts, rolls, ws, s, Thickness);
             if (rails) RibbonKerbs(rib, 0.7f);
 
             for (int i = 1; i < pts.Count; i++) Level.Path.Add(pts[i]);
@@ -360,6 +411,12 @@ namespace RollingSteel
         /// Low kerbs along the edges of the slab just built.
         public CourseBuilder Rails(bool left = true, bool right = true, float h = 0.7f)
         {
+            if (lastIsRibbon && lastRibbon != null)
+            {
+                RibbonKerbs(lastRibbon, h, left, right);
+                return this;
+            }
+
             const float rw = 0.35f;
             Vector3 mid = (lastA + lastB) * 0.5f;
             float len = (lastB - lastA).magnitude;

@@ -45,12 +45,29 @@ return b.Done();
 | `Enemy(kind, lateral, back, range, speed)` | a chaser or a blob |
 | `Goal(depth, width)` | the finish pad |
 
-**`Rails()` only knows about the last *slab*.** Curves and hills take a `rails:`
-argument instead; chaining `.Rails()` after one silently kerbs the wrong piece.
+`Rails()` kerbs whichever piece was built last, slab or swept, so it can be
+chained onto anything. Curves and hills also take a `rails:` argument, which is
+handy inside `Chicane()` where two curves are built by one call.
 
 Omitting a `width` keeps the current one. Widths are in the same units as
 everything else; the marble has a radius of 0.5, so a 3-wide catwalk gives you
 2 units of usable room.
+
+## Joins take care of themselves
+
+You do not have to match anything up between pieces:
+
+- **Widths ease** across a piece from whatever the cursor currently is to the
+  width you asked for, so changing width mid-course is a taper, not a notch. A
+  straight whose width changes is swept rather than boxed to make that possible.
+- **Gradients and banks arrive and leave at zero**, because `Hill` and `Curve`
+  use a smoothstep profile and a sine bank ramp. Consecutive swept pieces are
+  therefore continuous without effort.
+- **Pieces overlap their neighbours** by a hair, so no seam shows where two end
+  faces meet.
+
+The exception is `Slope`, which holds a constant gradient on purpose - use it
+where you *want* a visible fold, and `Hill` everywhere else.
 
 ## Slabs or curves?
 

@@ -8,7 +8,7 @@ namespace RollingSteel
     /// assets at all.
     public static class Sfx
     {
-        public enum Clip { Start, Goal, Death, Clack, Warn }
+        public enum Clip { Start, Goal, Death, Clack, Warn, Fall, Sizzle, Chomp, Shatter }
 
         const int Rate = 44100;
 
@@ -32,6 +32,52 @@ namespace RollingSteel
             bank[Clip.Death] = Make("death", 0.7f, t => Env(t, 0.7f, 0.005f, 0.35f) * Sine(t, Mathf.Lerp(420f, 60f, t / 0.7f)) * 0.9f);
             bank[Clip.Clack] = Make("clack", 0.12f, t => Env(t, 0.12f, 0.002f, 0.05f) * (Noise(t) * 0.5f + Sine(t, 180f) * 0.5f));
             bank[Clip.Warn] = Make("warn", 0.16f, t => Env(t, 0.16f, 0.004f, 0.08f) * Sine(t, 880f));
+
+            // Death sounds. Each one has a falling gesture plus its own texture,
+            // so you can tell what killed you without reading the banner.
+            float fallPhase = 0f;
+            bank[Clip.Fall] = Make("fall", 1.25f, t =>
+            {
+                float f = Mathf.Lerp(950f, 70f, Mathf.Pow(t / 1.25f, 0.55f));
+                fallPhase += f / Rate;            // integrate, or the sweep tears
+                return Env(t, 1.25f, 0.005f, 0.5f) *
+                       (Mathf.Sin(fallPhase * 2f * Mathf.PI) * 0.7f + Noise(t) * 0.14f);
+            });
+
+            float sizzlePhase = 0f;
+            bank[Clip.Sizzle] = Make("sizzle", 0.85f, t =>
+            {
+                float f = Mathf.Lerp(420f, 90f, t / 0.85f);
+                sizzlePhase += f / Rate;
+                float fizz = (Noise(t) - Noise(t - 1f / Rate)) * 0.55f;
+                return Env(t, 0.85f, 0.004f, 0.4f) *
+                       (fizz + Mathf.Sin(sizzlePhase * 2f * Mathf.PI) * 0.35f);
+            });
+
+            float chompPhase = 0f;
+            bank[Clip.Chomp] = Make("chomp", 0.5f, t =>
+            {
+                float f = Mathf.Lerp(260f, 55f, Mathf.Pow(t / 0.5f, 0.7f));
+                chompPhase += f / Rate;
+                return Env(t, 0.5f, 0.003f, 0.2f) *
+                       (Mathf.Sin(chompPhase * 2f * Mathf.PI) * 0.75f + Noise(t) * 0.3f);
+            });
+
+            // metallic shards, five short FM pings over a noise transient
+            bank[Clip.Shatter] = Make("shatter", 0.6f, t =>
+            {
+                float v = Noise(t) * Mathf.Exp(-t / 0.045f) * 0.55f;
+                for (int k = 0; k < 5; k++)
+                {
+                    float u = t - k * 0.032f;
+                    if (u < 0f) continue;
+                    float f = 1150f + k * 470f;
+                    v += Mathf.Sin(u * f * 2f * Mathf.PI
+                                   + 3.2f * Mathf.Sin(u * f * 1.7f * 2f * Mathf.PI))
+                         * Mathf.Exp(-u / 0.085f) * 0.2f;
+                }
+                return v;
+            });
 
             roll = Make("roll", 1f, t => Noise(t) * 0.35f + Sine(t, 55f) * 0.2f, loop: true);
         }
