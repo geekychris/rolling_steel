@@ -35,7 +35,7 @@ public static class ProjectSetup
 
         //     name       colour                        metal smooth  emission
         Mat("Deck", new Color(0.58f, 0.62f, 0.70f), 0.05f, 0.25f);
-        Mat("DeckAlt", new Color(0.46f, 0.50f, 0.59f), 0.05f, 0.25f);
+        Mat("DeckAlt", new Color(0.52f, 0.56f, 0.65f), 0.05f, 0.25f);
         Mat("Rail", new Color(0.28f, 0.31f, 0.39f), 0.25f, 0.35f);
         Mat("Ice", new Color(0.62f, 0.86f, 0.96f), 0.00f, 0.93f);
         Mat("Rough", new Color(0.72f, 0.57f, 0.34f), 0.00f, 0.05f);

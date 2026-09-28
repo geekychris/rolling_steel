@@ -43,6 +43,8 @@ for i in 1 2 3 4; do make verify || break; done
 | `-yaw DEG` | initial camera yaw |
 | `-dumpmusic DIR` | render every theme to a WAV and exit |
 | `-mute` | start with music off |
+| `-killat SECS` | force a wipeout, for capturing the death effects |
+| `-shotat T1,T2,…` | override the screenshot schedule |
 
 ```bash
 scripts/run.sh -demo -quitafter 260            # full self-played run
@@ -105,6 +107,20 @@ from zero over a 4 ms attack, and the "this note has decayed, stop rendering"
 test ran before the attack finished, so it broke out of the loop on the first
 sample of every note. Peak and RMS both looked fine; only the percentile and a
 printed envelope showed the holes.
+
+## Capturing something that rarely happens
+
+The demo driver currently clears all three courses without falling, which is good
+for the courses and useless for testing the death effects. `-killat` forces a
+wipeout at a chosen moment and `-shotat` puts the screenshots where they are
+wanted, so the sequence can be captured deterministically:
+
+```bash
+scripts/run.sh -demo -killat 6.0 -shotat 6.08,6.3,6.8,7.4 -shots ./shots/death -quitafter 11
+```
+
+Worth remembering that `make shots` clears the output directory first, so a
+hand-captured sequence wants its own folder or it will be deleted by the next run.
 
 ## Log lines
 

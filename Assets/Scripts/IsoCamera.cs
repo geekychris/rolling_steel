@@ -32,6 +32,7 @@ namespace RollingSteel
         Camera cam;
         Vector3 vel;
         float yawNow, pitchNow, sizeNow;
+        float shake;
         float qHold, eHold;
         bool wasSpinning;
 
@@ -114,6 +115,7 @@ namespace RollingSteel
                 sizeNow = Mathf.Lerp(sizeNow, Size, k);
                 cam.orthographicSize = sizeNow;
                 transform.rotation = Rig;
+                transform.position += ShakeOffset();
                 return;
             }
 
@@ -124,7 +126,20 @@ namespace RollingSteel
 
             transform.position = Vector3.SmoothDamp(transform.position, Desired(), ref vel, Smooth);
             transform.rotation = Rig;
+            transform.position += ShakeOffset();
         }
+
+        Vector3 ShakeOffset()
+        {
+            if (shake <= 0.001f) return Vector3.zero;
+            Vector3 o = Random.insideUnitSphere * shake;
+            shake = Mathf.MoveTowards(shake, 0f, Time.unscaledDeltaTime * 3.5f);
+            return o;
+        }
+
+        /// A knock, for deaths. Decays on unscaled time so it still reads during
+        /// the slow-motion beat.
+        public void Shake(float amount) => shake = Mathf.Max(shake, amount);
 
         /// Jump straight to the framing with no easing (level load, respawn).
         public void Snap()

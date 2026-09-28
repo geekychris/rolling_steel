@@ -27,6 +27,7 @@ assets under `Assets/Resources/Mat/`, created by an editor script. See
 | `CourseLibrary.cs` | the three courses, written against that DSL |
 | `LevelBuilder.cs` | turns course data into colliders, renderers and hazards; meshes the swept pieces |
 | `Decor.cs` | abstract floating scenery, themed per level |
+| `DeathFx.cs` | the wipeout: physical shards, sparks and their cleanup |
 | `Music.cs` | step sequencer and synth; the whole soundtrack |
 | `MarbleController.cs` | rigidbody marble: camera-relative force, ground detection, speed cap |
 | `IsoCamera.cs` | orthographic 3/4 chase camera with live yaw / tilt / zoom |
@@ -74,6 +75,26 @@ smooths *along* the sweep (so a curve reads as a curve) while leaving the edges
 crisp. That is what lets a ribbon sit next to a chunky slab without the two
 looking like they came from different games. Collision is a non-convex
 `MeshCollider` over the same mesh.
+
+### Making pieces link rather than abut
+
+Three things were making joins visible, and all three are handled in the builder
+rather than left to the course author:
+
+- **Width stepped at the first cross-section.** A piece used its *target* width
+  for every node, so a change from 9 to 8 appeared as a half-unit notch in each
+  edge exactly at the seam. Widths now ease from the cursor's current width to
+  the target across the piece. Straight runs are swept rather than boxed when
+  their width changes, for the same reason.
+- **Coincident end faces.** Two pieces that merely touch leave a hairline where
+  their end faces fight. Every piece is now grown by a hair (0.06) at each end,
+  so its cap sits buried inside its neighbour.
+- **Gradient and bank.** `Hill` and `Curve` both use a smoothstep profile, whose
+  derivative is zero at both ends, and `Curve` ramps its bank in and out on a
+  sine. Pieces therefore always arrive and leave flat and level, so consecutive
+  pieces are continuous in gradient and roll without the author matching anything
+  up by hand. `Slope` deliberately keeps a constant gradient, for where the fold
+  should be visible.
 
 ## Course space and the camera
 
@@ -136,6 +157,24 @@ costs nothing after the first time its course is reached.
 `-dumpmusic DIR` writes every theme as a WAV, which is how the soundtrack gets
 checked without anyone having to listen to it. See
 [Verification](VERIFICATION.md#checking-the-music).
+
+## The wipeout
+
+Deaths are physical rather than a particle system: `DeathFx` spawns chunky shards
+with rigidbodies that bounce off the deck, plus smaller collider-less sparks for
+legibility at this camera distance. A `Fader` shrinks and removes each one, since
+debris that lingers spends the rest of the run falling through the level.
+
+Around that, `GameDirector` flashes the screen (tinted by cause of death), knocks
+the camera, and drops `Time.timeScale` to 0.3, easing it back to 1 across the
+death hold. Because time is scaled, the director's own timers — the state clock,
+the screenshot schedule, the flash decay, the camera shake — all run on
+`unscaledDeltaTime`; only gameplay is slowed.
+
+Falls are detected by how far the marble has dropped *since it last had contact*
+rather than by an absolute floor. The old absolute test fired 14 units below the
+lowest deck, by which point the marble was far off screen and there was nothing
+to see. It survives as a backstop.
 
 ## Unity 6 API notes
 

@@ -24,11 +24,13 @@ namespace RollingSteel
         public bool UseScriptedInput;
 
         Transform cam;
+        MeshRenderer view;
         bool groundedThisStep;
 
         void Awake()
         {
             Body = GetComponent<Rigidbody>();
+            view = GetComponent<MeshRenderer>();
             Body.mass = 1f;
             Body.linearDamping = 0f;
             Body.angularDamping = 0.05f;
@@ -38,6 +40,8 @@ namespace RollingSteel
         }
 
         public void Bind(Camera c) => cam = c.transform;
+
+        public void SetVisible(bool visible) { if (view != null) view.enabled = visible; }
 
         void FixedUpdate()
         {

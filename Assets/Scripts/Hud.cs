@@ -63,6 +63,13 @@ namespace RollingSteel
             EnsureStyles();
 
             float w = Screen.width, h = Screen.height;
+
+            if (g.Flash > 0.001f)
+            {
+                var c = g.FlashColor;
+                Box(new Rect(0f, 0f, w, h), new Color(c.r, c.g, c.b, g.Flash * 0.42f));
+            }
+
             float barH = 46f * s;
 
             Box(new Rect(0f, 0f, w, barH), new Color(0f, 0f, 0f, 0.55f));
