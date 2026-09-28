@@ -34,13 +34,16 @@ namespace RollingSteel
         Camera cam;
         IsoCamera isoCam;
         AudioSource rollSrc;
+        AudioSource musicSrc;
+        int currentTheme = -1;
+        bool musicMuted;
         float stateTimer;
         float lastWarnBeep;
 
         // ---- headless capture / demo hooks --------------------------------
         bool demoMode, autoStart;
         float startYaw;
-        string shotDir;
+        string shotDir, musicDumpDir;
         float quitAfter = -1f;
         readonly float[] shotTimes = { 1f, 6f, 11f, 20f, 27f, 33f, 45f, 54f, 62f, 67.5f };
         int nextShot;
@@ -56,7 +59,28 @@ namespace RollingSteel
             levels = CourseLibrary.All();
             ParseArgs();
 
+            if (!string.IsNullOrEmpty(musicDumpDir))
+            {
+                Directory.CreateDirectory(musicDumpDir);
+                for (int i = 0; i <= 3; i++)
+                {
+                    string path = Path.Combine(musicDumpDir, $"theme{i}.wav");
+                    Music.WriteWav(path, Music.RenderRaw(i));
+                    Debug.Log($"[music] wrote {path}");
+                }
+                Application.Quit();
+                return;
+            }
+
             Sfx.Init(gameObject);
+
+            musicSrc = gameObject.AddComponent<AudioSource>();
+            musicSrc.loop = true;
+            musicSrc.playOnAwake = false;
+            musicSrc.spatialBlend = 0f;
+            musicSrc.volume = 0.34f;
+            musicSrc.mute = musicMuted;
+
             BuildRig();
             BuildMarble();
             gameObject.AddComponent<Hud>();
@@ -65,6 +89,8 @@ namespace RollingSteel
             LoadLevel(0, resetClock: true);
             if (autoStart) { State = GameState.Playing; Sfx.Play(Sfx.Clip.Start); }
             else { State = GameState.Title; Marble.Frozen = true; }
+
+            PlayTheme(State == GameState.Title ? 0 : CurrentLevel.MusicTheme);
         }
 
         void ParseArgs()
@@ -78,6 +104,8 @@ namespace RollingSteel
                     case "-demo": demoMode = true; autoStart = true; break;
                     case "-shots": if (i + 1 < a.Length) shotDir = a[++i]; break;
                     case "-yaw": if (i + 1 < a.Length) float.TryParse(a[++i], out startYaw); break;
+                    case "-dumpmusic": if (i + 1 < a.Length) musicDumpDir = a[++i]; break;
+                    case "-mute": musicMuted = true; break;
                     case "-quitafter": if (i + 1 < a.Length) float.TryParse(a[++i], out quitAfter); break;
                 }
             }
@@ -157,6 +185,8 @@ namespace RollingSteel
             if (resetClock) TimeLeft = 0f;
             TimeLeft += levels[index].TimeBonus;
             Debug.Log($"[level] {index + 1}/{levels.Count} {levels[index].Name} clock={TimeLeft:0.0}");
+
+            PlayTheme(levels[index].MusicTheme);
 
             Marble.Frozen = false;
             Marble.Teleport(built.SpawnWorld);
@@ -268,6 +298,12 @@ namespace RollingSteel
 
             if (Input.GetKeyDown(KeyCode.Escape)) Application.Quit();
 
+            if (Input.GetKeyDown(KeyCode.M))
+            {
+                musicMuted = !musicMuted;
+                if (musicSrc != null) musicSrc.mute = musicMuted;
+            }
+
             switch (State)
             {
                 case GameState.Title:
@@ -306,6 +342,16 @@ namespace RollingSteel
         }
 
         // ---- transitions ----------------------------------------------------
+
+        /// Themes are synthesised on first use and cached, so switching costs
+        /// nothing after the first time a course is reached.
+        void PlayTheme(int index)
+        {
+            if (musicSrc == null || index == currentTheme) return;
+            currentTheme = index;
+            musicSrc.clip = Music.Theme(index);
+            musicSrc.Play();
+        }
 
         void Enter(GameState s)
         {
@@ -410,12 +456,23 @@ namespace RollingSteel
             Sfx.Play(Sfx.Clip.Start);
         }
 
-        /// 0..1 along the current course, for the HUD progress bar.
+        /// 0..1 along the current course, for the HUD progress bar. Measured as
+        /// distance along the route rather than course-space Z, because a curve
+        /// can turn the course through 90 degrees and stop Z increasing at all.
         public float Progress()
         {
-            if (built?.Root == null || Marble == null) return 0f;
-            float z = built.Root.transform.InverseTransformPoint(Marble.transform.position).z;
-            return Mathf.Clamp01(Mathf.InverseLerp(built.StartZ, built.GoalZ, z));
+            var path = built?.PathWorld;
+            if (path == null || path.Count == 0 || Marble == null) return 0f;
+
+            Vector3 p = Marble.transform.position;
+            int best = 0;
+            float bestD = float.MaxValue;
+            for (int i = 0; i < path.Count; i++)
+            {
+                float d = (path[i] - p).sqrMagnitude;
+                if (d < bestD) { bestD = d; best = i; }
+            }
+            return built.PathProgress[best];
         }
     }
 }

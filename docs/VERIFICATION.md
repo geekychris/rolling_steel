@@ -41,6 +41,8 @@ for i in 1 2 3 4; do make verify || break; done
 | `-shots DIR` | write in-engine screenshots to `DIR` on a fixed schedule |
 | `-quitafter SECS` | exit after this many seconds |
 | `-yaw DEG` | initial camera yaw |
+| `-dumpmusic DIR` | render every theme to a WAV and exit |
+| `-mute` | start with music off |
 
 ```bash
 scripts/run.sh -demo -quitafter 260            # full self-played run
@@ -76,6 +78,34 @@ return new Vector2(Vector3.Dot(wish, camRight), Vector3.Dot(wish, camForward));
 so the bot drives correctly at any view angle — including while the player is
 rotating the camera underneath it.
 
+## Checking the music
+
+The soundtrack is synthesised, so it can be rendered and measured rather than
+listened to:
+
+```bash
+scripts/run.sh -batchmode -nographics -dumpmusic ./shots/music
+```
+
+Three things are worth measuring, and each has caught something:
+
+- **Peak** — must stay below 1.0 or the clip will clatter. Render normalises to
+  0.82 and soft-clips above that.
+- **Envelope percentiles** — the 10th percentile of short-window RMS should be
+  comfortably above zero. A track that is loud on average can still be silent
+  half the time.
+- **Pitch content** — FFT the melodic band (above the kick, say 220-1600 Hz), map
+  the strongest peaks to note names, and check they belong to the key. Currently
+  40/40 for three themes and 39/40 for the fourth.
+
+That middle check earned its place immediately. Every theme measured a healthy
+overall RMS while its 10th percentile was exactly zero — because **every melodic
+voice was silent and all that was playing was drums**. The note envelope ramps
+from zero over a 4 ms attack, and the "this note has decayed, stop rendering"
+test ran before the attack finished, so it broke out of the loop on the first
+sample of every note. Peak and RMS both looked fine; only the percentile and a
+printed envelope showed the holes.
+
 ## Log lines
 
 The player writes structured lines to its log, which is what makes failures
@@ -92,7 +122,7 @@ points straight at the offending metre of level geometry.
 
 ## What this actually caught
 
-Five real bugs, none of which produced a compile error or a visual glitch:
+Seven real bugs, none of which produced a compile error or a visual glitch:
 
 **1. Two unjumpable gaps.** Both course 2 and course 3 opened a gap straight off
 a downhill ramp. The marble left the lip already moving downward and fell short
@@ -129,7 +159,20 @@ and records whether there is deck beneath it. Respawn only uses supported
 waypoints, so waypoints spanning a `Jump()` gap remain available for steering
 without ever becoming a respawn point.
 
-**5. A split entry with nowhere to go.** The route stepped sideways onto a
+**5. Respawning inside an acid pond.** The "is this waypoint safe?" test raycasts
+for deck and deliberately ignores triggers — acid is a trigger, so a waypoint
+sitting on top of a pond still counted as solid ground. Falling near one put the
+marble back *in* the acid, which killed it instantly, which respawned it in the
+same place. The tell was `lastGround` being identical to the death position.
+Respawn now also rejects waypoints inside a hazard volume; course 3 has two.
+
+**6. Hazard detours spliced in the wrong order.** Two acid patches on one run are
+dodged on opposite sides. `Acid()` inserted its detour relative to the end of the
+segment, so the detours came out in *declaration* order rather than the order the
+marble meets them, sending the route back and forth across the deck. It now
+projects each detour onto the current segment and inserts it by distance along.
+
+**7. A split entry with nowhere to go.** The route stepped sideways onto a
 2.2-wide catwalk at the exact z the pit opened, leaving no distance to drift
 across. Two causes: the approach deck was narrower than the catwalks it fed, and
 the previous segment's centre waypoint sat directly over the pit mouth.

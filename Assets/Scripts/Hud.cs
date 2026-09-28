@@ -86,7 +86,7 @@ namespace RollingSteel
                 var hint = new GUIStyle(small) { alignment = TextAnchor.MiddleLeft };
                 hint.fontSize = Mathf.RoundToInt(14 * s);
                 Text(new Rect(14f * s, h - 26f * s, w * 0.6f, 20f * s),
-                     "Q / E  turn view      Z / X  tilt      WHEEL  zoom      R  restart",
+                     "Q / E  turn view      Z / X  tilt      WHEEL  zoom      M  music      R  restart",
                      hint, new Color(1f, 1f, 1f, 0.45f));
             }
 
@@ -125,7 +125,7 @@ namespace RollingSteel
                 "avoid the acid, the blobs and the steel marbles",
                 "falling costs you 3 seconds   -   the clock never stops",
                 "",
-                "R  restart      ESC  quit",
+                "M  music       R  restart      ESC  quit",
             };
 
             float y = h * 0.46f;

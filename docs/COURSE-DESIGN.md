@@ -6,9 +6,10 @@ Courses live in `Assets/Scripts/CourseLibrary.cs` and are written against the
 ## The cursor
 
 `CourseBuilder` keeps a cursor at the centre of the **leading edge of the deck,
-level with the deck's top surface**. Every call lays geometry from the cursor and
-moves it along, so segments join up automatically and you never type a
-coordinate.
+level with the deck's top surface**, plus a **heading**. Every call lays geometry
+from the cursor and moves it along, so segments join up automatically and you
+never type a coordinate. `Curve()` turns the heading, and everything after it is
+laid out in the new direction.
 
 ```csharp
 var b = new CourseBuilder("PRACTICE", timeBonus: 75f, startWidth: 10f);
@@ -36,14 +37,35 @@ return b.Done();
 | `Gap(len)` | advance without laying deck |
 | `Step(dy)` | sheer drop with no connecting geometry |
 | `Jump(gapLen, drop, lip)` | a flat lip, then a gap, then a step down |
+| `Curve(radius, angle, drop, w, bank, rails)` | banked turn; positive angle turns right |
+| `Hill(len, drop, w, rails)` | ramp whose incline eases in and out |
+| `Chicane(radius, angle, drop, w, bank, rails)` | an S-bend, ending on the original heading |
 | `Rails(left, right, h)` | kerbs along the segment just built |
-| `Acid(w, depth, lateral, back)` | acid patch on the segment just built |
+| `Acid(w, depth, lateral, back, leadIn)` | acid patch on the segment just built |
 | `Enemy(kind, lateral, back, range, speed)` | a chaser or a blob |
 | `Goal(depth, width)` | the finish pad |
+
+**`Rails()` only knows about the last *slab*.** Curves and hills take a `rails:`
+argument instead; chaining `.Rails()` after one silently kerbs the wrong piece.
 
 Omitting a `width` keeps the current one. Widths are in the same units as
 everything else; the marble has a radius of 0.5, so a 3-wide catwalk gives you
 2 units of usable room.
+
+## Slabs or curves?
+
+Both, on purpose. Slabs are chunky boxes with hard edges — they read well
+isometrically and make a drop obvious at a glance. Swept pieces flow, which suits
+turns and long descents.
+
+A `Hill` is usually better than a `Slope` where a ramp meets flat deck: it starts
+and ends at zero gradient, so there is no crease to catch the marble, and it
+leaves the lip flat, which matters enormously for jumps (below). Use `Slope` when
+you want the fold to be visible and deliberate.
+
+`Curve` banks in and out with a sine ramp, so the ends always meet flat deck
+level however hard the middle is banked. Bank is worth having: it holds the
+marble through a turn that would otherwise throw it off the outside edge.
 
 ## Surfaces
 
@@ -107,12 +129,19 @@ are handled inside the builder:
   the preceding segment may not reach — if that segment is a diagonal `Jog` still
   moving laterally, the waypoint lands over the void.
 
-**The rule: every waypoint that a player can respawn onto must have deck under it.**
-`LevelBuilder` enforces this rather than trusting it — it tests each densified
-waypoint against the block geometry and records the answer in
-`BuiltLevel.PathSupported`. Respawn only ever uses supported waypoints, so a
-waypoint spanning a `Jump()` gap can stay on the route for steering without ever
-becoming a respawn point.
+**The rule: every waypoint a player can respawn onto must have solid deck under
+it and nothing lethal on it.** `LevelBuilder` enforces this rather than trusting
+it: after building the geometry it raycasts down from each densified waypoint,
+and separately checks whether the point sits inside an acid trigger. Both answers
+fold into `BuiltLevel.PathSupported`. Respawn uses only safe waypoints, so a
+waypoint spanning a `Jump()` gap, or one that clips the corner of an acid pond,
+stays available for steering without ever becoming a respawn point.
+
+Hazards on the same piece are spliced into the centreline **in travel order**,
+not the order you declared them — `Acid()` projects its detour onto the current
+segment to work out where it belongs. Declaring two acids back-to-front is
+therefore safe, though writing them in the order the marble meets them still
+reads better.
 
 If you add a hazard type that blocks the route, give it the same treatment or
 respawning will drop the player onto it.
@@ -125,6 +154,10 @@ of whatever the player saved, not a fresh start. Falling costs 3 seconds.
 Rules of thumb that came out of tuning these three:
 
 - 6-10 wide is comfortable; 4 is tense; below 3.5 is punishing at speed.
+- Give a hazard room to be dodged. `Acid()` splices a detour around itself, but a
+  detour needs *distance* to be driven: a patch 2 units into a 7-unit run cannot
+  be avoided at speed however wide the deck is. `leadIn` defaults to 4 units;
+  the flat piece has to be long enough to contain it.
 - Ice wants kerbs unless you intend it to be the hard bit.
 - Put sand where the player most wants to be fast, not where they are already slow.
 - A chaser near a narrow section is far more dangerous than one on open deck —
