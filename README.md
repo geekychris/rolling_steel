@@ -12,8 +12,6 @@ soundtrack that is generated at startup rather than loaded.
 
 ![Rolling Steel title screen](docs/images/title.png)
 
-![The three courses](docs/images/courses.png)
-
 ## Quick start
 
 ```bash
@@ -40,7 +38,10 @@ and what to do when the editor holds the project lock.
 | `Esc` | quit |
 
 Steering is **camera-relative**: "push up" always means "away from the camera",
-so turning the view turns the controls with it.
+so turning the view turns the controls with it — which is what makes a freely
+rotatable camera workable in a game that is otherwise all momentum.
+
+![The same corner from three camera angles](docs/images/views.png)
 
 ## The courses
 
@@ -54,9 +55,7 @@ Time **carries over** between courses and never stops. Falling costs 3 seconds
 and puts you back on the course just behind where you last had contact. Running
 the clock to zero ends the run — the clock is the lives system.
 
-| | |
-|---|---|
-| ![Ice section](docs/images/course2-ice.png) | ![All courses clear](docs/images/won.png) |
+![The three courses](docs/images/courses.png)
 
 ## Track
 
@@ -72,9 +71,15 @@ instead of stepping at its first cross-section, banks and gradients arrive and
 leave at zero, and every piece is grown fractionally at each end so it buries
 itself in its neighbour instead of leaving a hairline where the faces meet.
 
-Each course also gets a dozen pieces of abstract floating scenery, themed per
-level — a grove, then frost, then embers — placed off to the sides so they frame
-the void without getting in the way. None of it has a collider.
+![The run in to the goal pad on course 3](docs/images/goal.png)
+
+## Scenery
+
+Each course gets a dozen pieces of abstract floating scenery, themed per level,
+placed off to the sides so they frame the void without getting in the way. It is
+seeded, so a course looks the same every run, and none of it has a collider.
+
+![The three scenery themes](docs/images/scenery.png)
 
 ## Music
 
@@ -102,6 +107,8 @@ without reading the banner.
   shoulder you off the edge. Not fatal on their own; the drop is.
 - **Ice** — nearly frictionless. **Sand** — kills your speed right before you need it.
 
+![All three courses cleared](docs/images/won.png)
+
 ## Make targets
 
 | Target | Does |
@@ -118,7 +125,7 @@ without reading the banner.
 - [Building](docs/BUILDING.md) — prerequisites, scripts, troubleshooting
 - [Architecture](docs/ARCHITECTURE.md) — how the code fits together and why it is built at runtime
 - [Course design](docs/COURSE-DESIGN.md) — the `CourseBuilder` DSL, and how to write your own course
-- [Verification](docs/VERIFICATION.md) — the self-playing bot, and two physics traps it caught
+- [Verification](docs/VERIFICATION.md) — the self-playing bot, and the bugs it caught that nothing else would have
 
 ## Notable design choice
 
