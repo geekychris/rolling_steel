@@ -23,7 +23,7 @@ namespace RollingSteel
             try
             {
                 Directory.CreateDirectory(Dir);
-                if (Files().Length == 0) Seed();
+                SeedMissing();
             }
             catch (IOException e)
             {
@@ -40,12 +40,20 @@ namespace RollingSteel
             return files;
         }
 
-        static void Seed()
+        /// Write out any built-in course that has no file yet. Gap-filling rather
+        /// than all-or-nothing, so a build that adds courses adds their files to an
+        /// existing installation without touching what is already there.
+        static void SeedMissing()
         {
+            int written = 0;
             for (int i = 0; i < CourseLibrary.Sources.Length; i++)
-                File.WriteAllText(Path.Combine(Dir, $"{i + 1}.course"),
-                                  CourseLibrary.Sources[i].TrimStart('\n', '\r'));
-            Debug.Log($"[courses] seeded {CourseLibrary.Sources.Length} courses into {Dir}");
+            {
+                string path = Path.Combine(Dir, $"{i + 1}.course");
+                if (File.Exists(path)) continue;
+                File.WriteAllText(path, CourseLibrary.Sources[i].TrimStart('\n', '\r'));
+                written++;
+            }
+            if (written > 0) Debug.Log($"[courses] seeded {written} course file(s) into {Dir}");
         }
 
         public static string PathFor(int index)

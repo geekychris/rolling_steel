@@ -37,7 +37,9 @@ On first run the built-in courses are written to
 ~/Library/Application Support/claude world/Rolling Steel/Courses/
 ```
 
-as `1.course`, `2.course`, `3.course`. The editor saves back there. You can edit
+as `1.course` … `6.course`. The editor saves back there. Only missing files are
+written, so a build that adds courses adds their files without touching edits you
+have already made. You can edit
 them in any text editor instead and press `L` in game to reload, or point the
 game somewhere else entirely:
 
@@ -46,7 +48,7 @@ scripts/run.sh -courses /path/to/my/courses
 ```
 
 Any `*.course` file in that directory is loaded, sorted by filename — so adding
-`4.course` adds a fourth course. A file that fails to parse falls back to the
+`7.course` adds a seventh course. A file that fails to parse falls back to the
 built-in course of the same index, and unknown verbs are skipped with a warning
 rather than taking the game down.
 
@@ -80,8 +82,8 @@ goal d=9
 | `name` | shown on the HUD |
 | `time` | seconds added to the clock on entering this course |
 | `width` | starting deck width |
-| `decor` | scenery theme: 0 grove, 1 frost, 2 embers |
-| `music` | theme index: 0 title, 1-3 the course themes |
+| `decor` | scenery theme: 0 grove, 1 frost, 2 embers, 3 arches, 4 balloons, 5 monoliths |
+| `music` | theme index: 0 title, 1-6 the course themes |
 
 ### Track
 

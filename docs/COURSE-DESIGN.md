@@ -76,11 +76,11 @@ you want the fold to be visible and deliberate.
 level however hard the middle is banked. Bank is worth having: it holds the
 marble through a turn that would otherwise throw it off the outside edge.
 
-![Slabs, a tapered straight and two banked curves on course 1](images/course1.png)
+![Slabs, swept curves and tapered straights on course 6](images/course6.png)
 
-Course 1 above: a slab start pad, a straight tapering from 9 wide to 8, then a
-banked right and a banked left. The width change and the slab-to-sweep joins are
-not visible, which is the point.
+Course 6 above: chunky slabs where the drop needs to read, swept curves where the
+course should flow, and straights tapering between widths. None of the joins
+between the two kinds are visible, which is the point.
 
 ## Surfaces
 

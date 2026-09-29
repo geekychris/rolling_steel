@@ -84,6 +84,9 @@ namespace RollingSteel
             {
                 case 1: if (rng.Next(3) == 0) Orb(host.transform, rng); else Crystal(host.transform, rng); break;
                 case 2: if (rng.Next(3) == 0) Shard(host.transform, rng); else Spire(host.transform, rng); break;
+                case 3: if (rng.Next(2) == 0) Ring(host.transform, rng); else Arch(host.transform, rng); break;
+                case 4: if (rng.Next(2) == 0) Balloon(host.transform, rng); else Candy(host.transform, rng); break;
+                case 5: if (rng.Next(3) == 0) Shard(host.transform, rng); else Monolith(host.transform, rng); break;
                 default: if (rng.Next(4) == 0) Island(host.transform, rng); else Tree(host.transform, rng); break;
             }
             return host;
@@ -157,6 +160,65 @@ namespace RollingSteel
             Part(t, PrimitiveType.Cylinder, Vector3.zero,
                  new Vector3(3.2f, 0.06f, 3.2f),
                  Quaternion.Euler(Rand(rng, -25f, 25f), 0f, Rand(rng, -25f, 25f)), "Glow");
+        }
+
+        // ---- theme 3: aerial -------------------------------------------
+
+        static void Arch(Transform t, System.Random rng)
+        {
+            float span = Rand(rng, 3.5f, 6f), h = Rand(rng, 3f, 5f);
+            for (int side = -1; side <= 1; side += 2)
+                Part(t, PrimitiveType.Cube, new Vector3(side * span * 0.5f, h * 0.5f, 0f),
+                     new Vector3(0.5f, h, 0.5f), Quaternion.identity, "Pale");
+            Part(t, PrimitiveType.Cube, new Vector3(0f, h + 0.3f, 0f),
+                 new Vector3(span + 0.5f, 0.6f, 0.7f), Quaternion.identity, "Pale");
+        }
+
+        static void Ring(Transform t, System.Random rng)
+        {
+            float r = Rand(rng, 2.4f, 4.2f);
+            var rot = Quaternion.Euler(Rand(rng, 60f, 120f), Rand(rng, 0f, 360f), 0f);
+            Part(t, PrimitiveType.Cylinder, Vector3.zero, new Vector3(r, 0.12f, r), rot, "Crystal");
+            Part(t, PrimitiveType.Cylinder, Vector3.zero,
+                 new Vector3(r * 0.72f, 0.16f, r * 0.72f), rot, "Pale");
+        }
+
+        // ---- theme 4: silly --------------------------------------------
+
+        static void Candy(Transform t, System.Random rng)
+        {
+            string[] mats = { "Candy", "Glow", "Leaf", "Crystal" };
+            float y = 0f;
+            int n = rng.Next(3, 6);
+            for (int i = 0; i < n; i++)
+            {
+                float w = Rand(rng, 1.2f, 2.6f);
+                Part(t, PrimitiveType.Cube, new Vector3(Rand(rng, -0.5f, 0.5f), y, Rand(rng, -0.5f, 0.5f)),
+                     Vector3.one * w, Quaternion.Euler(Rand(rng, -30f, 30f), Rand(rng, 0f, 90f), Rand(rng, -30f, 30f)),
+                     mats[rng.Next(mats.Length)]);
+                y += w * 0.85f;
+            }
+        }
+
+        static void Balloon(Transform t, System.Random rng)
+        {
+            float r = Rand(rng, 1.6f, 2.8f);
+            Part(t, PrimitiveType.Sphere, Vector3.up * r, Vector3.one * r,
+                 Quaternion.identity, rng.Next(2) == 0 ? "Candy" : "Glow");
+            Part(t, PrimitiveType.Cylinder, Vector3.zero, new Vector3(0.1f, r * 0.9f, 0.1f),
+                 Quaternion.identity, "Pale");
+        }
+
+        // ---- theme 5: monoliths ----------------------------------------
+
+        static void Monolith(Transform t, System.Random rng)
+        {
+            float h = Rand(rng, 5f, 11f), w = Rand(rng, 1.4f, 2.6f);
+            Part(t, PrimitiveType.Cube, Vector3.up * (h * 0.5f), new Vector3(w, h, w * 0.7f),
+                 Quaternion.Euler(0f, Rand(rng, 0f, 90f), Rand(rng, -6f, 6f)), "Stone");
+            Part(t, PrimitiveType.Cube, Vector3.up * (h * 0.78f),
+                 new Vector3(w * 1.05f, h * 0.06f, w * 0.75f),
+                 Quaternion.Euler(0f, Rand(rng, 0f, 90f), 0f), "Danger");
         }
 
         // ---- theme 2: embers -------------------------------------------

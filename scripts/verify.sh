@@ -4,7 +4,7 @@
 #   scripts/verify.sh [seconds]
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/unity-env.sh"
 
-TIMEOUT="${1:-120}"
+TIMEOUT="${1:-300}"    # six courses take a while to drive
 LOG="$REPO_ROOT/Logs/verify.log"
 mkdir -p "$REPO_ROOT/Logs"
 
@@ -26,7 +26,7 @@ grep -E "\[level\]|\[state\]" "$LOG" || true
 echo "--- falls: $(grep -c '\[death\]' "$LOG" || true) ---"
 
 if grep -q '\[state\] Won' "$LOG"; then
-  echo "PASS - all three courses cleared"
+  echo "PASS - all $(grep -c "\[level\]" "$LOG") courses cleared"
 else
   echo "FAIL - never reached the win state; see $LOG" >&2
   grep -E '\[death\]' "$LOG" | head -10 >&2 || true
