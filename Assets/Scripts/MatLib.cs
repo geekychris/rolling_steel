@@ -35,6 +35,7 @@ namespace RollingSteel
                 case Surface.Goal: return "Goal";
                 case Surface.Start: return "Start";
                 case Surface.Rail: return "Rail";
+                case Surface.Crumble: return "Crumble";
                 default: return "Deck";
             }
         }
@@ -55,7 +56,10 @@ namespace RollingSteel
             };
         }
 
-        static PhysicsMaterial deck, rough, ice, rail, marble;
+        static PhysicsMaterial deck, rough, ice, rail, marble, bouncy;
+
+        /// Posts and sweeper arms, so glancing off one actually deflects you.
+        public static PhysicsMaterial Bouncy => bouncy ??= Make("Bouncy", 0.25f, 0.25f, 0.65f);
 
         public static PhysicsMaterial Marble => marble ??= Make("Marble", 0.5f, 0.5f, 0.15f);
 
@@ -66,6 +70,7 @@ namespace RollingSteel
                 case Surface.Rough: return rough ??= Make("Rough", 1.1f, 1.2f, 0.02f);
                 case Surface.Ice: return ice ??= Make("Ice", 0.05f, 0.05f, 0.05f);
                 case Surface.Rail: return rail ??= Make("Rail", 0.3f, 0.3f, 0.35f);
+                case Surface.Crumble: return deck ??= Make("Deck", 0.55f, 0.6f, 0.12f);
                 default: return deck ??= Make("Deck", 0.55f, 0.6f, 0.12f);
             }
         }

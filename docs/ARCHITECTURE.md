@@ -24,10 +24,14 @@ assets under `Assets/Resources/Mat/`, created by an editor script. See
 | Script | Role |
 |--------|------|
 | `Course.cs` | `CourseBuilder` — a cursor-based DSL for laying out a descent, plus the centreline it records |
-| `CourseLibrary.cs` | the three courses, written against that DSL |
+| `CourseLibrary.cs` | the three built-in courses, as course-script source |
 | `LevelBuilder.cs` | turns course data into colliders, renderers and hazards; meshes the swept pieces |
 | `Decor.cs` | abstract floating scenery, themed per level |
 | `DeathFx.cs` | the wipeout: physical shards, sparks and their cleanup |
+| `Obstacles.cs` | sweepers, crushers, fan zones and crumbling deck |
+| `CourseScript.cs` | the course file format: parse, render, and build |
+| `CourseStore.cs` | where course files live; seeding and fallback |
+| `CourseEditor.cs` | the in-game editor |
 | `Music.cs` | step sequencer and synth; the whole soundtrack |
 | `MarbleController.cs` | rigidbody marble: camera-relative force, ground detection, speed cap |
 | `IsoCamera.cs` | orthographic 3/4 chase camera with live yaw / tilt / zoom |
@@ -157,6 +161,28 @@ costs nothing after the first time its course is reached.
 `-dumpmusic DIR` writes every theme as a WAV, which is how the soundtrack gets
 checked without anyone having to listen to it. See
 [Verification](VERIFICATION.md#checking-the-music).
+
+## Courses as data
+
+Courses are text, not code. `CourseScript` parses a file into a list of lines —
+each a verb, some named numbers, some flags — and drives `CourseBuilder` with
+them. `CourseLibrary` holds the built-ins as source strings, and `CourseStore`
+seeds them to disk on first run so there is always something to edit.
+
+That is what makes the in-game editor possible: editing is manipulating a list of
+numbers and rebuilding, rather than anything that needs a scene or a serialiser.
+A rebuild is a few milliseconds, so every keystroke can re-make the whole course.
+
+Two properties fall out of it and are worth preserving:
+
+- **What ships is what the editor edits.** There is one course format, so a
+  built-in course and a hand-written one are the same kind of thing.
+- **A bad course cannot take the game down.** A file that will not parse falls
+  back to the built-in of the same index; an unknown verb is skipped with a
+  warning; and an edit that will not build leaves the previous level standing.
+
+`Level.Anchors` records the cursor position after each source line, which is how
+the editor parks the marble at the piece you are editing.
 
 ## The wipeout
 

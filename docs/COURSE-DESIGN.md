@@ -1,7 +1,13 @@
 # Course design
 
-Courses live in `Assets/Scripts/CourseLibrary.cs` and are written against the
-`CourseBuilder` DSL in `Assets/Scripts/Course.cs`.
+Courses are plain text. The verbs and their fields are listed in
+[the editor reference](COURSE-EDITOR.md#the-file-format); this page is about how
+to make a course that is worth playing.
+
+The built-in courses live as source in `Assets/Scripts/CourseLibrary.cs` and are
+seeded to disk on first run. `CourseScript` parses them; each verb maps onto one
+`CourseBuilder` call in `Assets/Scripts/Course.cs`, which is where the geometry
+actually gets made.
 
 ## The cursor
 
@@ -11,45 +17,31 @@ from the cursor and moves it along, so segments join up automatically and you
 never type a coordinate. `Curve()` turns the heading, and everything after it is
 laid out in the new direction.
 
-```csharp
-var b = new CourseBuilder("PRACTICE", timeBonus: 75f, startWidth: 10f);
+```
+name PRACTICE
+time 75
+width 10
 
-b.Pad(10f, 10f, Surface.Start).Rails();   // starting platform, kerbed
-b.Run(14f, 9f).Rails();                   // flat, 14 long, 9 wide
-b.Slope(16f, 4f, 8f).Rails();             // 16 along, dropping 4
-b.Jog(-6f, 12f, 6f);                      // shift 6 left while advancing 12
-b.Split(16f, 3f, 3.5f);                   // two decks with a pit between
-b.Goal();
-
-return b.Done();
+pad d=10 w=10 start        # starting platform
+rails                      # kerb it
+run len=14 w=9             # flat, 14 long, 9 wide
+hill len=16 drop=4 w=8     # 16 along, dropping 4, eased at both ends
+jog dx=-6 d=12 w=6         # shift 6 left while advancing 12
+split len=16 side=3 pit=3.5
+goal
 ```
 
 ## Reference
 
-| Call | Effect |
-|------|--------|
-| `Pad(depth, width, surface)` | platform from the cursor |
-| `Run(len, width)` | flat segment |
-| `Slope(len, drop, width)` | descending ramp |
-| `Jog(dx, depth, width)` | diagonal shuffle sideways while advancing |
-| `Ice(len, width)` / `Rough(len, width)` | low-friction / high-friction deck |
-| `Split(len, sideWidth, gapWidth, apron)` | a solid apron, then two parallel decks either side of a pit |
-| `Gap(len)` | advance without laying deck |
-| `Step(dy)` | sheer drop with no connecting geometry |
-| `Jump(gapLen, drop, lip)` | a flat lip, then a gap, then a step down |
-| `Curve(radius, angle, drop, w, bank, rails)` | banked turn; positive angle turns right |
-| `Hill(len, drop, w, rails)` | ramp whose incline eases in and out |
-| `Chicane(radius, angle, drop, w, bank, rails)` | an S-bend, ending on the original heading |
-| `Rails(left, right, h)` | kerbs along the segment just built |
-| `Acid(w, depth, lateral, back, leadIn)` | acid patch on the segment just built |
-| `Enemy(kind, lateral, back, range, speed)` | a chaser or a blob |
-| `Goal(depth, width)` | the finish pad |
+The full verb list is in
+[the editor reference](COURSE-EDITOR.md#the-file-format). Two rules that catch
+people out:
 
-`Rails()` kerbs whichever piece was built last, slab or swept, so it can be
-chained onto anything. Curves and hills also take a `rails:` argument, which is
-handy inside `Chicane()` where two curves are built by one call.
-
-Omitting a `width` keeps the current one. Widths are in the same units as
+- **`rails` applies to the piece just laid**, whichever kind it was — so it goes
+  on the line *after* the piece it kerbs. `hill` and `curve` also accept a
+  `rails` flag inline, which is what `chicane` needs since it lays two curves.
+- **Omitting a width keeps the current one**, and widths ease rather than step,
+  so changing width is free. Widths are in the same units as
 everything else; the marble has a radius of 0.5, so a 3-wide catwalk gives you
 2 units of usable room.
 
@@ -168,6 +160,27 @@ reads better.
 
 If you add a hazard type that blocks the route, give it the same treatment or
 respawning will drop the player onto it.
+
+## Obstacles
+
+Beyond acid and the two rolling enemies there are four things that get in the
+way, and they divide along a line worth understanding:
+
+**Routable** — `pillar`, `crusher` and `acid` sit still, so the centreline is
+spliced around them automatically. They are safe to put on the racing line, as
+long as the piece they sit on is long enough for the detour to be driveable.
+
+**Not routable** — `sweeper` and `fan` move, or cover the whole deck, so no fixed
+detour exists. Put them where being caught is survivable, or place a sweeper's
+pivot at the deck edge so the inside line stays clear.
+
+That distinction matters more than it sounds: **respawn follows the centreline**,
+so an obstacle the centreline cannot avoid is an obstacle you can be respawned
+onto — which is a death loop, not a difficulty spike.
+
+`crumble` is a third case: it is deck rather than an obstacle, and it is only
+dangerous if you stop. Tiles fall a beat after you touch them and come back a few
+seconds later, so crossing is free and loitering is not.
 
 ## Difficulty
 

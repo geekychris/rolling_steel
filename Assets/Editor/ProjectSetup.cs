@@ -46,6 +46,12 @@ public static class ProjectSetup
         Mat("Steel", new Color(0.33f, 0.34f, 0.39f), 0.90f, 0.70f);
         Mat("Blob", new Color(0.34f, 0.94f, 0.40f), 0.00f, 0.30f, new Color(0.09f, 0.42f, 0.11f));
 
+        // obstacles
+        Mat("Crumble", new Color(0.72f, 0.52f, 0.28f), 0.00f, 0.15f);
+        Mat("Danger", new Color(0.72f, 0.20f, 0.18f), 0.35f, 0.45f, new Color(0.22f, 0.03f, 0.02f));
+        Mat("Prop", new Color(0.38f, 0.40f, 0.46f), 0.55f, 0.50f);
+        Mat("Fan", new Color(0.72f, 0.35f, 1.00f), 0.00f, 0.70f, new Color(0.30f, 0.08f, 0.48f));  // violet, so it is not mistaken for ice
+
         // floating scenery
         Mat("Bark", new Color(0.32f, 0.24f, 0.18f), 0.00f, 0.12f);
         Mat("Leaf", new Color(0.24f, 0.55f, 0.30f), 0.00f, 0.22f);

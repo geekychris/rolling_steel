@@ -74,8 +74,9 @@ namespace RollingSteel
 
             Box(new Rect(0f, 0f, w, barH), new Color(0f, 0f, 0f, 0.55f));
 
-            Text(new Rect(16f * s, 0f, w * 0.4f, barH),
-                 $"COURSE {g.LevelIndex + 1}/{g.LevelCount}   {g.CurrentLevel.Name}", label, Cyan);
+            if (!g.Editing)
+                Text(new Rect(16f * s, 0f, w * 0.4f, barH),
+                     $"COURSE {g.LevelIndex + 1}/{g.LevelCount}   {g.CurrentLevel.Name}", label, Cyan);
 
             Color timeCol = g.TimeLeft <= 10f ? Red : Amber;
             Text(new Rect(0f, 0f, w, barH), $"{g.TimeLeft:0.0}", big, timeCol);
@@ -88,18 +89,18 @@ namespace RollingSteel
             Box(new Rect(px0, py, pw, ph), new Color(1f, 1f, 1f, 0.16f));
             Box(new Rect(px0, py, pw * g.Progress(), ph), Cyan);
 
-            if (g.State != GameState.Title)
+            if (g.State != GameState.Title && !g.Editing)
             {
                 var hint = new GUIStyle(small) { alignment = TextAnchor.MiddleLeft };
                 hint.fontSize = Mathf.RoundToInt(14 * s);
                 Text(new Rect(14f * s, h - 26f * s, w * 0.6f, 20f * s),
-                     "Q / E  turn view      Z / X  tilt      WHEEL  zoom      M  music      R  restart",
+                     "Q / E  turn view    Z / X  tilt    WHEEL  zoom    M  music    F1  edit course    R  restart",
                      hint, new Color(1f, 1f, 1f, 0.45f));
             }
 
             switch (g.State)
             {
-                case GameState.Title: TitleCard(w, h); break;
+                case GameState.Title: if (!g.Editing) TitleCard(w, h); break;
                 case GameState.Dying: Banner(w, h, g.DeathReason, Red, "-3 SECONDS"); break;
                 case GameState.LevelClear: Banner(w, h, "COURSE CLEAR", Green, "TIME CARRIES OVER"); break;
                 case GameState.GameOver: Banner(w, h, "OUT OF TIME", Red, "SPACE / R  TO TRY AGAIN"); break;
@@ -132,7 +133,7 @@ namespace RollingSteel
                 "avoid the acid, the blobs and the steel marbles",
                 "falling costs you 3 seconds   -   the clock never stops",
                 "",
-                "M  music       R  restart      ESC  quit",
+                "M  music       F1  course editor       R  restart      ESC  quit",
             };
 
             float y = h * 0.46f;

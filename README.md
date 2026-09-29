@@ -33,6 +33,7 @@ and what to do when the editor holds the project lock.
 | `Z` / `X` | tilt the camera |
 | mouse wheel, `-` / `=` | zoom |
 | `M` | music on / off |
+| `F1` | open the course editor |
 | `Space` / `Return` | start |
 | `R` | restart the run |
 | `Esc` | quit |
@@ -99,13 +100,45 @@ without reading the banner.
 
 ![A wipeout, frame by frame](docs/images/wipeout.png)
 
-## Hazards
+## What gets in the way
 
-- **Acid ponds** — green, flush with the deck, instantly fatal.
-- **Green blobs** — glide back and forth across the deck; contact is fatal.
-- **Steel marbles** — heavier than you, roll at you when you get close, and
-  shoulder you off the edge. Not fatal on their own; the drop is.
-- **Ice** — nearly frictionless. **Sand** — kills your speed right before you need it.
+| | |
+|---|---|
+| **Acid ponds** | green, flush with the deck, instantly fatal |
+| **Green blobs** | glide across the deck; contact is fatal |
+| **Steel marbles** | heavier than you, roll at you, shoulder you off. The drop kills, not the hit |
+| **Pillars** | static posts. Block the line, bounce you, never kill |
+| **Sweepers** | a bar rotating on a post. Mistime it and it puts you somewhere you did not want to be |
+| **Crushers** | slam down on a cycle. Fatal underneath, in the way the rest of the time |
+| **Fans** | shove you sideways for as long as you are crossing them |
+| **Crumbling deck** | drops away a beat after you touch it, and comes back later. Crossing is free; stopping is not |
+| **Ice** | nearly frictionless. **Sand** kills your speed right when you need it |
+
+![Obstacles](docs/images/obstacles.png)
+
+## Course editor
+
+Press **F1**. The course opens as a list of lines; every change rebuilds it
+instantly and parks the marble at the line you are editing, so you are always
+looking at what you just changed. `S` saves, `L` reloads.
+
+![The in-game course editor](docs/images/editor.png)
+
+Courses are plain text — a verb, some named numbers, some flags:
+
+```
+hill len=16 drop=4 w=8 rails
+curve r=15 a=60 drop=1.5 w=7 bank=12 rails
+pillar x=0 back=4 r=0.9 h=2.6
+split len=15 side=3 pit=3.5
+```
+
+They are seeded to
+`~/Library/Application Support/claude world/Rolling Steel/Courses/` on first run,
+so you can edit them in any text editor and press `L` in game to reload — or
+point the game at a folder of your own with `-courses`. Drop in a `4.course` and
+you have a fourth course. Full reference in
+[docs/COURSE-EDITOR.md](docs/COURSE-EDITOR.md).
 
 ![All three courses cleared](docs/images/won.png)
 
@@ -124,7 +157,8 @@ without reading the banner.
 
 - [Building](docs/BUILDING.md) — prerequisites, scripts, troubleshooting
 - [Architecture](docs/ARCHITECTURE.md) — how the code fits together and why it is built at runtime
-- [Course design](docs/COURSE-DESIGN.md) — the `CourseBuilder` DSL, and how to write your own course
+- [Course editor](docs/COURSE-EDITOR.md) — the editor keys and the course file format
+- [Course design](docs/COURSE-DESIGN.md) — how to make a course worth playing
 - [Verification](docs/VERIFICATION.md) — the self-playing bot, and the bugs it caught that nothing else would have
 
 ## Notable design choice

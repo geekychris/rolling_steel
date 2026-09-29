@@ -8,7 +8,7 @@ namespace RollingSteel
     /// assets at all.
     public static class Sfx
     {
-        public enum Clip { Start, Goal, Death, Clack, Warn, Fall, Sizzle, Chomp, Shatter }
+        public enum Clip { Start, Goal, Death, Clack, Warn, Fall, Sizzle, Chomp, Shatter, Thud }
 
         const int Rate = 44100;
 
@@ -77,6 +77,15 @@ namespace RollingSteel
                          * Mathf.Exp(-u / 0.085f) * 0.2f;
                 }
                 return v;
+            });
+
+            float thudPhase = 0f;
+            bank[Clip.Thud] = Make("thud", 0.4f, t =>
+            {
+                float f = Mathf.Lerp(150f, 38f, Mathf.Clamp01(t / 0.09f));
+                thudPhase += f / Rate;
+                return Env(t, 0.4f, 0.002f, 0.25f) *
+                       (Mathf.Sin(thudPhase * 2f * Mathf.PI) * 0.8f + Noise(t) * 0.25f);
             });
 
             roll = Make("roll", 1f, t => Noise(t) * 0.35f + Sine(t, 55f) * 0.2f, loop: true);
