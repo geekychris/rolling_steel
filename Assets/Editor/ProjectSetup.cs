@@ -58,6 +58,8 @@ public static class ProjectSetup
         Mat("Stone", new Color(0.26f, 0.27f, 0.33f), 0.05f, 0.18f);
         Mat("Crystal", new Color(0.55f, 0.82f, 0.95f), 0.20f, 0.88f, new Color(0.05f, 0.15f, 0.22f));
         Mat("Glow", new Color(1.00f, 0.66f, 0.28f), 0.00f, 0.55f, new Color(0.60f, 0.30f, 0.06f));
+        Mat("Pale", new Color(0.82f, 0.88f, 0.96f), 0.05f, 0.40f);
+        Mat("Candy", new Color(1.00f, 0.38f, 0.66f), 0.00f, 0.60f, new Color(0.40f, 0.06f, 0.22f));
     }
 
     static void Mat(string name, Color col, float metallic, float smooth, Color? emission = null)

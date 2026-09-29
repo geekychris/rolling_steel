@@ -1,6 +1,6 @@
 # Rolling Steel
 
-An isometric roll-a-marble-downhill game for macOS, built in Unity 6.3 — three
+An isometric roll-a-marble-downhill game for macOS, built in Unity 6.3 — six
 descending courses, one shared clock, and a marble that only ever moves because
 you pushed it.
 
@@ -46,17 +46,22 @@ rotatable camera workable in a game that is otherwise all momentum.
 
 ## The courses
 
+Six, each with its own scenery theme and its own synthesised track.
+
 | # | Name | Clock | What it throws at you |
 |---|------|-------|----------------------|
-| 1 | Practice | 75 s | wide and kerbed, one pit, one steel marble |
-| 2 | Beginner | +70 s | ice, an acid pond, a gap to jump, two chasers |
-| 3 | Intermediate | +65 s | exposed catwalks, a steep ice drop, an acid slalom, sand at the worst moment |
+| 1 | Practice | 75 s | wide and kerbed, one pit, a pillar, one steel marble |
+| 2 | Beginner | +70 s | ice, acid, a jump, a fan, an edge-pivoted sweeper |
+| 3 | Intermediate | +65 s | exposed catwalks, a steep ice drop, a crusher, an acid slalom, sand |
+| 4 | Aerial | +60 s | long spans with nothing either side, three jumps, very little kerbing |
+| 5 | Silly | +58 s | everything moves — paired crushers, fans blowing both ways, a fast sweeper |
+| 6 | Ultimate | +56 s | all of it, with the clock at its meanest |
 
 Time **carries over** between courses and never stops. Falling costs 3 seconds
 and puts you back on the course just behind where you last had contact. Running
 the clock to zero ends the run — the clock is the lives system.
 
-![The three courses](docs/images/courses.png)
+![The six courses](docs/images/courses.png)
 
 ## Track
 
@@ -72,22 +77,28 @@ instead of stepping at its first cross-section, banks and gradients arrive and
 leave at zero, and every piece is grown fractionally at each end so it buries
 itself in its neighbour instead of leaving a hairline where the faces meet.
 
-![The run in to the goal pad on course 3](docs/images/goal.png)
-
 ## Scenery
 
-Each course gets a dozen pieces of abstract floating scenery, themed per level,
-placed off to the sides so they frame the void without getting in the way. It is
-seeded, so a course looks the same every run, and none of it has a collider.
-
-![The three scenery themes](docs/images/scenery.png)
+Each course gets a dozen pieces of abstract floating scenery on its own theme —
+a grove, frost, embers, arches, balloons, monoliths — placed off to the sides so
+they frame the void without getting in the way. It is seeded, so a course looks
+the same every run, and none of it has a collider.
 
 ## Music
 
-Four themes, all synthesised at startup from a step sequencer: a square-wave
-bass, a 16th-note arpeggio, a two-operator FM lead and noise percussion, in the
-register early-80s arcade hardware worked in. No audio files anywhere in the
-repo. `M` toggles it.
+Seven themes — a title track and one per course — all synthesised at startup from
+a step sequencer: a square-wave bass, a 16th-note arpeggio, a two-operator FM
+lead and noise percussion, in the register early-80s arcade hardware worked in.
+No audio files anywhere in the repo. `M` toggles it.
+
+| Course | Key | Tempo | |
+|---|---|---|---|
+| Practice | A minor | 122 | bouncy and bright |
+| Beginner | D minor | 134 | driving |
+| Intermediate | F# minor | 144 | darker and faster |
+| Aerial | E minor | 126 | airy, bells over a pad |
+| Silly | C **major** | 152 | deliberately daft |
+| Ultimate | B minor | 160 | relentless |
 
 ## Wipeouts
 
@@ -140,7 +151,7 @@ point the game at a folder of your own with `-courses`. Drop in a `4.course` and
 you have a fourth course. Full reference in
 [docs/COURSE-EDITOR.md](docs/COURSE-EDITOR.md).
 
-![All three courses cleared](docs/images/won.png)
+![All six courses cleared](docs/images/won.png)
 
 ## Make targets
 

@@ -78,6 +78,9 @@ namespace RollingSteel
                 case 1: return Practice();
                 case 2: return Beginner();
                 case 3: return Intermediate();
+                case 4: return Aerial();
+                case 5: return Silly();
+                case 6: return Ultimate();
                 default: return Title();
             }
         }
@@ -255,6 +258,135 @@ namespace RollingSteel
                 new[] { 1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0, 1, 1 });
             s.Snare = Tile(new[] { 0, 0, 0, 0, 0, 0, 0, 0 },
                 new[] { 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1 });
+            s.Hat = Tile(new[] { 0, 0, 0, 0, 0, 0, 0, 0 },
+                new[] { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 });
+            return s;
+        }
+
+        // 4 - aerial: high, airy, lots of space under it
+        static Song Aerial()
+        {
+            var s = new Song { Bpm = 126f, Root = 52, Swing = 0.12f };      // E3
+
+            s.Parts.Add(new Part   // bell arpeggio, the voice that carries it
+            {
+                Wave = Wave.Fm, FmIndex = 1.3f, Gain = 0.15f, Decay = 0.5f, Transpose = 12,
+                Steps = Tile(new[] { 0, 1, 0, 2, 0, 1, 2, 2 },
+                    new[] { 7, -1, 11, -1, 14, -1, 11, -1, 9, -1, 7, -1, 4, -1, 7, -1 },
+                    new[] { 9, -1, 12, -1, 16, -1, 12, -1, 11, -1, 9, -1, 7, -1, 9, -1 },
+                    new[] { 4, -1, 7, -1, 11, -1, 7, -1, 6, -1, 4, -1, 2, -1, 4, -1 }),
+            });
+
+            s.Parts.Add(new Part   // pad underneath, long
+            {
+                Wave = Wave.Tri, Gain = 0.19f, Decay = 1.9f, Transpose = -12,
+                Steps = Tile(new[] { 0, 1, 0, 2, 0, 1, 2, 2 },
+                    new[] { 0, -1, -1, -1, -1, -1, -1, -1, 4, -1, -1, -1, -1, -1, -1, -1 },
+                    new[] { 2, -1, -1, -1, -1, -1, -1, -1, 5, -1, -1, -1, -1, -1, -1, -1 },
+                    new[] { 4, -1, -1, -1, -1, -1, -1, -1, 0, -1, -1, -1, -1, -1, -1, -1 }),
+            });
+
+            s.Parts.Add(new Part   // bass, sparse enough to leave the air
+            {
+                Wave = Wave.Saw, Gain = 0.24f, Decay = 0.32f, Transpose = -24, Lowpass = true,
+                Steps = Tile(new[] { 0, 1, 0, 2, 0, 1, 2, 2 },
+                    new[] { 0, -1, -1, 0, -1, -1, -1, 4, -1, -1, 0, -1, -1, -1, 2, -1 },
+                    new[] { 2, -1, -1, 2, -1, -1, -1, 5, -1, -1, 2, -1, -1, -1, 4, -1 },
+                    new[] { 4, -1, -1, 4, -1, -1, -1, 7, -1, -1, 4, -1, -1, -1, 0, -1 }),
+            });
+
+            s.Kick = Tile(new[] { 0, 0, 0, 0, 0, 0, 0, 0 },
+                new[] { 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0 });
+            s.Hat = Tile(new[] { 0, 0, 0, 0, 0, 0, 0, 0 },
+                new[] { 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1 });
+            return s;
+        }
+
+        // 5 - silly: major key, bouncy, deliberately daft
+        static Song Silly()
+        {
+            var s = new Song
+            {
+                Bpm = 152f, Root = 48, Swing = 0.2f,                        // C3
+                Scale = new[] { 0, 2, 4, 5, 7, 9, 11 },                     // major
+            };
+
+            s.Parts.Add(new Part   // walking bass
+            {
+                Wave = Wave.Saw, Gain = 0.26f, Decay = 0.12f, Transpose = -24, Lowpass = true,
+                Steps = Tile(new[] { 0, 1, 0, 2, 0, 1, 2, 2 },
+                    new[] { 0, -1, 0, -1, 4, -1, 2, -1, 7, -1, 4, -1, 2, -1, 4, -1 },
+                    new[] { 3, -1, 3, -1, 7, -1, 5, -1, 9, -1, 7, -1, 5, -1, 2, -1 },
+                    new[] { 4, -1, 4, -1, 7, -1, 9, -1, 11, -1, 9, -1, 7, -1, 4, -1 }),
+            });
+
+            s.Parts.Add(new Part   // staccato chirps
+            {
+                Wave = Wave.Pulse, Duty = 0.12f, Gain = 0.12f, Decay = 0.05f, Transpose = 12,
+                Steps = Tile(new[] { 0, 0, 1, 0, 2, 0, 1, 2 },
+                    new[] { 7, 7, -1, 9, -1, 7, -1, 4, 7, 7, -1, 9, -1, 11, -1, 9 },
+                    new[] { 9, 9, -1, 11, -1, 9, -1, 7, 12, 12, -1, 11, -1, 9, -1, 7 },
+                    new[] { 4, 4, -1, 2, -1, 4, -1, 7, 9, 9, -1, 7, -1, 4, -1, 2 }),
+            });
+
+            s.Parts.Add(new Part   // tune
+            {
+                Wave = Wave.Fm, FmIndex = 2.2f, Gain = 0.16f, Decay = 0.3f, Transpose = 12,
+                Steps = Tile(new[] { 3, 0, 3, 1, 0, 2, 1, 3 },
+                    new[] { 4, -1, 7, -1, 9, -1, 7, -1, 11, -1, -1, -1, 9, -1, -1, -1 },
+                    new[] { 12, -1, 11, -1, 9, -1, 7, -1, 4, -1, -1, -1, -1, -1, -1, -1 },
+                    new[] { 7, -1, 9, -1, 11, -1, 12, -1, 14, -1, 12, -1, 11, -1, 9, -1 },
+                    Rest16),
+            });
+
+            s.Kick = Tile(new[] { 0, 0, 0, 1, 0, 0, 0, 1 },
+                new[] { 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0 },
+                new[] { 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 1 });
+            s.Snare = Tile(new[] { 0, 0, 0, 0, 0, 0, 0, 0 },
+                new[] { 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0 });
+            s.Hat = Tile(new[] { 0, 0, 0, 0, 0, 0, 0, 0 },
+                new[] { 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1 });
+            return s;
+        }
+
+        // 6 - ultimate: relentless, and not friendly about it
+        static Song Ultimate()
+        {
+            var s = new Song { Bpm = 160f, Root = 47, Swing = 0f };         // B2
+
+            s.Parts.Add(new Part   // driving 16th bass
+            {
+                Wave = Wave.Saw, Gain = 0.29f, Decay = 0.09f, Transpose = -12, Lowpass = true,
+                Steps = Tile(new[] { 0, 0, 1, 0, 2, 1, 0, 2 },
+                    new[] { 0, 0, 0, -1, 0, 0, -1, 0, 0, 0, 0, -1, 3, -1, 5, -1 },
+                    new[] { 5, 5, 5, -1, 5, 5, -1, 5, 4, 4, 4, -1, 2, -1, 0, -1 },
+                    new[] { 7, 7, 7, -1, 6, 6, -1, 5, 3, 3, 3, -1, 2, -1, 1, -1 }),
+            });
+
+            s.Parts.Add(new Part   // relentless arpeggio
+            {
+                Wave = Wave.Pulse, Duty = 0.14f, Gain = 0.11f, Decay = 0.05f, Transpose = 12,
+                Steps = Tile(new[] { 0, 1, 2, 1, 0, 2, 1, 2 },
+                    new[] { 0, 3, 7, 10, 7, 3, 0, 3, 7, 10, 14, 10, 7, 3, 0, 3 },
+                    new[] { 3, 7, 10, 14, 10, 7, 3, 7, 10, 14, 17, 14, 10, 7, 3, 7 },
+                    new[] { 5, 9, 12, 16, 12, 9, 5, 9, 12, 16, 19, 16, 12, 9, 5, 2 }),
+            });
+
+            s.Parts.Add(new Part   // stabs
+            {
+                Wave = Wave.Fm, FmIndex = 4.6f, Gain = 0.15f, Decay = 0.22f, Transpose = 12,
+                Steps = Tile(new[] { 3, 0, 1, 3, 2, 0, 1, 2 },
+                    new[] { 14, -1, -1, 12, -1, -1, 11, -1, 9, -1, -1, -1, 7, -1, -1, -1 },
+                    new[] { 7, -1, 7, -1, 9, -1, 10, -1, 12, -1, -1, -1, -1, -1, -1, -1 },
+                    new[] { 12, -1, 10, -1, 9, -1, 7, -1, 5, -1, 3, -1, 2, -1, 0, -1 },
+                    Rest16),
+            });
+
+            s.Kick = Tile(new[] { 0, 1, 0, 1, 0, 1, 1, 1 },
+                new[] { 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0 },
+                new[] { 1, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 1 });
+            s.Snare = Tile(new[] { 0, 0, 0, 0, 0, 0, 0, 0 },
+                new[] { 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1 });
             s.Hat = Tile(new[] { 0, 0, 0, 0, 0, 0, 0, 0 },
                 new[] { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 });
             return s;

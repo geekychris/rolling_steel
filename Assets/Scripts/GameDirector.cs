@@ -72,7 +72,7 @@ namespace RollingSteel
             if (!string.IsNullOrEmpty(musicDumpDir))
             {
                 Directory.CreateDirectory(musicDumpDir);
-                for (int i = 0; i <= 3; i++)
+                for (int i = 0; i <= 6; i++)
                 {
                     string path = Path.Combine(musicDumpDir, $"theme{i}.wav");
                     Music.WriteWav(path, Music.RenderRaw(i));
