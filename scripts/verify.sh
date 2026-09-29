@@ -11,9 +11,15 @@ mkdir -p "$REPO_ROOT/Logs"
 [[ -d "$APP_DEFAULT" ]] || "$REPO_ROOT/scripts/build.sh"
 BIN="$(app_binary "$APP_DEFAULT")"
 
+# Seed a throwaway course directory, so this always checks the courses that
+# ship with the build rather than whatever is saved in the player's own
+# course folder after an editing session.
+COURSES="$(mktemp -d)"
+trap 'rm -rf "$COURSES"' EXIT
+
 echo "running headless playthrough (up to ${TIMEOUT}s)..."
 "$BIN" -screen-fullscreen 0 -screen-width 1280 -screen-height 720 \
-       -demo -quitafter "$TIMEOUT" -logFile "$LOG" >/dev/null 2>&1 || true
+       -demo -quitafter "$TIMEOUT" -courses "$COURSES" -logFile "$LOG" >/dev/null 2>&1 || true
 
 echo "--- progression ---"
 grep -E "\[level\]|\[state\]" "$LOG" || true

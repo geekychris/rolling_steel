@@ -24,7 +24,8 @@ namespace RollingSteel
         public int LevelIndex { get; private set; }
         public int Deaths { get; private set; }
         public string DeathReason { get; private set; } = "";
-        public bool MarbleIsLive => State == GameState.Playing;
+        public bool MarbleIsLive => State == GameState.Playing && !Editing;
+        public bool Editing => editor != null && editor.Active;
         public float KillY => built?.KillY ?? -200f;
         public Level CurrentLevel => levels[Mathf.Clamp(LevelIndex, 0, levels.Count - 1)];
         public int LevelCount => levels.Count;
@@ -35,6 +36,7 @@ namespace RollingSteel
         IsoCamera isoCam;
         AudioSource rollSrc;
         AudioSource musicSrc;
+        CourseEditor editor;
         int currentTheme = -1;
         bool musicMuted;
         float stateTimer;
@@ -48,7 +50,7 @@ namespace RollingSteel
         // ---- headless capture / demo hooks --------------------------------
         bool demoMode, autoStart;
         float startYaw;
-        string shotDir, musicDumpDir;
+        string shotDir, musicDumpDir, coursesDir;
         float quitAfter = -1f;
         float[] shotTimes = { 1f, 6f, 11f, 20f, 27f, 33f, 45f, 54f, 62f, 67.5f };
         float killAt = -1f;
@@ -63,8 +65,9 @@ namespace RollingSteel
             Application.targetFrameRate = 60;
             QualitySettings.vSyncCount = 1;
 
-            levels = CourseLibrary.All();
             ParseArgs();
+            CourseStore.Init(coursesDir);
+            levels = CourseStore.LoadLevels();
 
             if (!string.IsNullOrEmpty(musicDumpDir))
             {
@@ -91,6 +94,7 @@ namespace RollingSteel
             BuildRig();
             BuildMarble();
             gameObject.AddComponent<Hud>();
+            editor = gameObject.AddComponent<CourseEditor>();
 
             // Show the first course behind the title card rather than an empty void.
             LoadLevel(0, resetClock: true);
@@ -113,6 +117,7 @@ namespace RollingSteel
                     case "-yaw": if (i + 1 < a.Length) float.TryParse(a[++i], out startYaw); break;
                     case "-dumpmusic": if (i + 1 < a.Length) musicDumpDir = a[++i]; break;
                     case "-mute": musicMuted = true; break;
+                    case "-courses": if (i + 1 < a.Length) coursesDir = a[++i]; break;
 
                     // dev aids: force a wipeout, and choose when screenshots land,
                     // so the death effects can be captured without waiting for the
@@ -197,10 +202,7 @@ namespace RollingSteel
 
         void LoadLevel(int index, bool resetClock)
         {
-            if (built?.Root != null) Destroy(built.Root);
-            foreach (var e in FindObjectsByType<EnemyBall>(FindObjectsSortMode.None))
-                if (e != null) Destroy(e.gameObject);
-
+            ClearBuilt();
             LevelIndex = index;
             built = LevelBuilder.Build(levels[index]);
 
@@ -237,7 +239,7 @@ namespace RollingSteel
                 KillMarble("FELL OFF");
             }
 
-            if (demoMode && Marble != null)
+            if (demoMode && Marble != null && !Editing)
             {
                 Marble.UseScriptedInput = true;
                 Marble.ScriptedInput = DemoInput();
@@ -245,7 +247,7 @@ namespace RollingSteel
 
             switch (State)
             {
-                case GameState.Playing: TickPlaying(); break;
+                case GameState.Playing: if (!Editing) TickPlaying(); break;
                 case GameState.Dying:
                     // ease back out of slow motion rather than snapping
                     Time.timeScale = Mathf.Lerp(0.3f, 1f, Mathf.Clamp01(stateTimer / DyingHold));
@@ -346,7 +348,16 @@ namespace RollingSteel
             bool go = Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Return)
                    || Input.GetKeyDown(KeyCode.KeypadEnter);
 
-            if (Input.GetKeyDown(KeyCode.Escape)) Application.Quit();
+            if (Input.GetKeyDown(KeyCode.F1)) { editor.Toggle(); return; }
+
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                if (Editing) editor.EscapePressed();
+                else Application.Quit();
+                return;
+            }
+
+            if (Editing) return;          // the editor owns the keyboard while it is open
 
             if (Input.GetKeyDown(KeyCode.M))
             {
@@ -392,6 +403,50 @@ namespace RollingSteel
         }
 
         // ---- transitions ----------------------------------------------------
+
+        /// Rebuild the current course from the editor's lines. A course that will
+        /// not build is left alone rather than taking the level down, so a
+        /// half-finished edit never strands you.
+        public void RebuildFromEditor(List<Cmd> cmds, int parkLine)
+        {
+            Level lvl;
+            try { lvl = CourseScript.Build(cmds); }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"[editor] course will not build: {e.Message}");
+                return;
+            }
+
+            levels[LevelIndex] = lvl;
+            ClearBuilt();
+            built = LevelBuilder.Build(lvl);
+
+            Vector3 spot = built.SpawnWorld;
+            if (parkLine >= 0 && parkLine < lvl.Anchors.Count)
+                spot = built.Root.transform.TransformPoint(lvl.Anchors[parkLine] + Vector3.up * 1.2f);
+
+            Marble.SetVisible(true);
+            Marble.Teleport(spot);
+            Marble.Frozen = true;
+            Time.timeScale = 1f;
+            isoCam.Hold = false;
+            isoCam.Snap();
+        }
+
+        /// Leaving the editor drops you in wherever you were last parked.
+        public void LeaveEditor()
+        {
+            Marble.Frozen = State == GameState.Title;
+            fallWhistle = false;
+            ResyncDemo();
+        }
+
+        void ClearBuilt()
+        {
+            if (built?.Root != null) Destroy(built.Root);
+            foreach (var e in FindObjectsByType<EnemyBall>(FindObjectsSortMode.None))
+                if (e != null) Destroy(e.gameObject);
+        }
 
         /// Themes are synthesised on first use and cached, so switching costs
         /// nothing after the first time a course is reached.

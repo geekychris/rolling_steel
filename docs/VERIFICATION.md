@@ -45,6 +45,8 @@ for i in 1 2 3 4; do make verify || break; done
 | `-mute` | start with music off |
 | `-killat SECS` | force a wipeout, for capturing the death effects |
 | `-shotat T1,T2,…` | override the screenshot schedule |
+| `-courses DIR` | load courses from DIR (seeding it if empty) |
+| `-dumpmusic DIR` | render every theme to a WAV and exit |
 
 ```bash
 scripts/run.sh -demo -quitafter 260            # full self-played run
@@ -107,6 +109,13 @@ from zero over a 4 ms attack, and the "this note has decayed, stop rendering"
 test ran before the attack finished, so it broke out of the loop on the first
 sample of every note. Peak and RMS both looked fine; only the percentile and a
 printed envelope showed the holes.
+
+## Verifying the courses that ship
+
+`make verify` seeds a throwaway directory with `-courses` and runs against that,
+rather than against the player's own course folder. Without it, an editing
+session would quietly change what the completability check is checking — the
+harness would be testing your edits and reporting on the shipped courses.
 
 ## Capturing something that rarely happens
 
@@ -207,3 +216,6 @@ about the geometry goes unnoticed until it strands someone.
 - It does not test the camera controls, the title screen, or restart — those were
   checked by driving real keypresses into the window with AppleScript.
 - `make verify` is macOS-only because it runs a macOS player.
+- It checks the built-in courses only. A course you write yourself gets no such
+  guarantee: run the game with `-demo -courses /path/to/yours` to put the bot on
+  it, and watch the `[death]` lines.

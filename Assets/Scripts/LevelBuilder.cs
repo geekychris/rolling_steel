@@ -50,6 +50,9 @@ namespace RollingSteel
             foreach (var e in lvl.Enemies)
                 built.Enemies.Add(SpawnEnemy(e, root.transform));
 
+            foreach (var pr in lvl.Props)
+                BuildProp(pr, root.transform);
+
             BuildPath(lvl, root.transform, built);
             Decor.Scatter(lvl, built, root.transform);
 
@@ -85,6 +88,7 @@ namespace RollingSteel
             else
             {
                 col.sharedMaterial = MatLib.Physics(blk.Surface);
+                if (blk.Surface == Surface.Crumble) go.AddComponent<CrumbleTile>();
             }
 
             if (blk.Surface == Surface.Goal)
@@ -261,6 +265,105 @@ namespace RollingSteel
             box.isTrigger = true;
             box.size = new Vector3(deck.Size.x * 0.9f, 2.6f, deck.Size.z * 0.9f);
             trig.AddComponent<GoalPad>();
+        }
+
+        static void BuildProp(PropSpec spec, Transform root)
+        {
+            var host = new GameObject(spec.Kind.ToString());
+            host.transform.SetParent(root, false);
+            host.transform.localPosition = spec.Pos;
+            host.transform.localRotation = spec.Rot;
+
+            switch (spec.Kind)
+            {
+                case PropKind.Pillar: BuildPillar(host.transform, spec); break;
+                case PropKind.Sweeper: BuildSweeper(host.transform, spec); break;
+                case PropKind.Crusher: BuildCrusher(host.transform, spec, root); break;
+                case PropKind.Fan: BuildFan(host.transform, spec); break;
+            }
+        }
+
+        static GameObject Piece(Transform parent, PrimitiveType type, Vector3 pos,
+                               Vector3 scale, string material)
+        {
+            var go = GameObject.CreatePrimitive(type);
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = pos;
+            go.transform.localScale = scale;
+            go.GetComponent<MeshRenderer>().sharedMaterial = MatLib.Get(material);
+            return go;
+        }
+
+        static void BuildPillar(Transform host, PropSpec spec)
+        {
+            var post = Piece(host, PrimitiveType.Cylinder, Vector3.up * (spec.Height * 0.5f),
+                             new Vector3(spec.Size * 2f, spec.Height * 0.5f, spec.Size * 2f), "Prop");
+            post.GetComponent<Collider>().sharedMaterial = MatLib.Bouncy;
+
+            Piece(host, PrimitiveType.Cylinder, Vector3.up * 0.12f,
+                  new Vector3(spec.Size * 2.6f, 0.12f, spec.Size * 2.6f), "Rail")
+                .GetComponent<Collider>().enabled = false;         // decorative base
+        }
+
+        static void BuildSweeper(Transform host, PropSpec spec)
+        {
+            Piece(host, PrimitiveType.Cylinder, Vector3.up * 0.7f,
+                  new Vector3(0.5f, 0.7f, 0.5f), "Prop")
+                .GetComponent<Collider>().enabled = false;         // the post is scenery
+
+            var arm = new GameObject("Arm");
+            arm.transform.SetParent(host, false);
+            arm.transform.localPosition = Vector3.up * spec.Height;
+
+            var rb = arm.AddComponent<Rigidbody>();
+            rb.isKinematic = true;
+            rb.interpolation = RigidbodyInterpolation.Interpolate;
+
+            var bar = Piece(arm.transform, PrimitiveType.Cube, Vector3.zero,
+                            new Vector3(spec.Size, 0.35f, 0.45f), "Danger");
+            bar.GetComponent<Collider>().sharedMaterial = MatLib.Bouncy;
+
+            arm.AddComponent<SweeperArm>().DegreesPerSecond = spec.Speed;
+        }
+
+        static void BuildCrusher(Transform host, PropSpec spec, Transform root)
+        {
+            const float blockH = 1.8f;
+
+            var block = Piece(host, PrimitiveType.Cube, Vector3.up * (blockH * 0.5f),
+                              new Vector3(spec.Size, blockH, spec.Size), "Danger");
+            var rb = block.AddComponent<Rigidbody>();
+            rb.isKinematic = true;
+            rb.interpolation = RigidbodyInterpolation.Interpolate;
+            block.GetComponent<Collider>().sharedMaterial = MatLib.Bouncy;
+
+            var crusher = block.AddComponent<CrusherBlock>();
+            crusher.Period = Mathf.Max(0.6f, spec.Speed);
+            crusher.Lift = spec.Height;
+            crusher.Phase = spec.Phase;
+            crusher.HalfWidth = spec.Size * 0.5f;
+            crusher.Init(block.transform.position);
+        }
+
+        static void BuildFan(Transform host, PropSpec spec)
+        {
+            var pad = Piece(host, PrimitiveType.Cube, Vector3.zero,
+                            new Vector3(spec.Size, 0.1f, spec.Depth), "Fan");
+            pad.GetComponent<MeshRenderer>().shadowCastingMode =
+                UnityEngine.Rendering.ShadowCastingMode.Off;
+            pad.GetComponent<Collider>().enabled = false;
+
+            var zone = new GameObject("FanZone");
+            zone.transform.SetParent(host, false);
+            zone.transform.localPosition = Vector3.up * 1.2f;
+
+            var box = zone.AddComponent<BoxCollider>();
+            box.isTrigger = true;
+            box.size = new Vector3(spec.Size, 2.4f, spec.Depth);
+
+            var fan = zone.AddComponent<FanZone>();
+            fan.Push = host.right * Mathf.Sign(spec.Power);
+            fan.Power = Mathf.Abs(spec.Power);
         }
 
         static EnemyBall SpawnEnemy(EnemySpec spec, Transform root)

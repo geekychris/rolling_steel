@@ -4,7 +4,14 @@ using UnityEngine;
 namespace RollingSteel
 {
     /// How a deck surface behaves underfoot (and which material it gets).
-    public enum Surface { Normal, Rough, Ice, Acid, Goal, Start, Rail }
+    public enum Surface { Normal, Rough, Ice, Acid, Goal, Start, Rail, Crumble }
+
+    /// Obstacles that sit on the deck rather than being part of it.
+    ///   Pillar  - static post. Blocks the line; bounces you, never kills.
+    ///   Sweeper - rotating arm on a post. Knocks you off if you mistime it.
+    ///   Crusher - block that slams down on a cycle. Lethal underneath.
+    ///   Fan     - updraught zone that shoves you sideways while you cross it.
+    public enum PropKind { Pillar, Sweeper, Crusher, Fan }
 
     public enum EnemyKind { Chaser, Wanderer }
 
@@ -33,6 +40,19 @@ namespace RollingSteel
         public float Thickness;
     }
 
+    public struct PropSpec
+    {
+        public PropKind Kind;
+        public Vector3 Pos;         // course space, on the deck surface
+        public Quaternion Rot;
+        public float Size;          // radius, arm length, or zone width
+        public float Height;
+        public float Speed;         // degrees/sec for a sweeper, period for a crusher
+        public float Phase;
+        public float Power;         // fan push
+        public float Depth;         // fan depth
+    }
+
     public struct EnemySpec
     {
         public EnemyKind Kind;
@@ -52,10 +72,14 @@ namespace RollingSteel
         public readonly List<Block> Blocks = new List<Block>();
         public readonly List<Ribbon> Ribbons = new List<Ribbon>();
         public readonly List<EnemySpec> Enemies = new List<EnemySpec>();
+        public readonly List<PropSpec> Props = new List<PropSpec>();
 
         /// Centreline of the route, in course space and in travel order. Used by
         /// respawn and by the demo driver.
         public readonly List<Vector3> Path = new List<Vector3>();
+        /// Cursor position after each source line, so the editor can park the
+        /// marble at the piece you are editing.
+        public readonly List<Vector3> Anchors = new List<Vector3>();
     }
 
     /// Cursor-based course builder. The cursor sits at the centre of the leading
@@ -479,6 +503,114 @@ namespace RollingSteel
             InsertAlong(cur + Frame * new Vector3(bypass, 0f, -(backZ + depth * 0.5f + leadIn)));
             InsertAlong(cur + Frame * new Vector3(bypass, 0f, -(backZ - depth * 0.5f - 1.5f)));
             return this;
+        }
+
+        /// A static post. Blocks the racing line without being lethal - the danger
+        /// is where it bounces you, not the post itself.
+        public CourseBuilder Pillar(float lateral, float back, float radius = 0.85f, float height = 2.6f)
+        {
+            Level.Props.Add(new PropSpec
+            {
+                Kind = PropKind.Pillar,
+                Pos = cur + Frame * new Vector3(lateral, 0f, -back),
+                Rot = Frame,
+                Size = radius,
+                Height = height,
+            });
+            Detour(lateral, radius + 0.7f, back, radius + 0.7f, 4f);
+            return this;
+        }
+
+        /// A bar rotating about a post, sweeping the deck.
+        public CourseBuilder Sweeper(float lateral, float back, float length = 5f,
+                                     float speed = 70f, float height = 0.55f, float phase = 0f)
+        {
+            Level.Props.Add(new PropSpec
+            {
+                Kind = PropKind.Sweeper,
+                Pos = cur + Frame * new Vector3(lateral, 0f, -back),
+                Rot = Frame,
+                Size = length,
+                Height = height,
+                Speed = speed,
+                Phase = phase,
+            });
+            return this;
+        }
+
+        /// A block that lifts and slams down on a cycle. Being underneath when it
+        /// lands is fatal; the rest of the time it is just in the way.
+        public CourseBuilder Crusher(float lateral, float back, float width = 3f,
+                                     float period = 2.4f, float phase = 0f, float lift = 4.5f)
+        {
+            Level.Props.Add(new PropSpec
+            {
+                Kind = PropKind.Crusher,
+                Pos = cur + Frame * new Vector3(lateral, 0f, -back),
+                Rot = Frame,
+                Size = width,
+                Height = lift,
+                Speed = period,
+                Phase = phase,
+            });
+            Detour(lateral, width * 0.5f + 0.6f, back, width * 0.5f, 5f);
+            return this;
+        }
+
+        /// A zone that shoves the marble sideways while it is inside.
+        public CourseBuilder Fan(float lateral, float back, float width = 6f,
+                                 float depth = 6f, float push = 16f)
+        {
+            Level.Props.Add(new PropSpec
+            {
+                Kind = PropKind.Fan,
+                Pos = cur + Frame * new Vector3(lateral, 0.05f, -(depth * 0.5f + back)),
+                Rot = Frame,
+                Size = width,
+                Depth = depth,
+                Power = push,
+            });
+            return this;
+        }
+
+        /// Deck laid as separate tiles that drop away shortly after you touch
+        /// them, and come back a few seconds later.
+        public CourseBuilder Crumble(float len, float w = -1f, float tile = 2.4f)
+        {
+            float wid = w < 0f ? width : w;
+            int n = Mathf.Max(1, Mathf.RoundToInt(len / tile));
+            float step = len / n;
+
+            segStart = cur;
+            segStartIdx = Level.Path.Count - 1;
+
+            for (int i = 0; i < n; i++)
+            {
+                Vector3 a = cur + Fwd * (step * i);
+                Vector3 b = cur + Fwd * (step * (i + 1));
+                Slab(a, b, wid, Surface.Crumble);
+            }
+
+            cur += Fwd * len;
+            width = wid;
+            Level.Path.Add(cur);
+            return this;
+        }
+
+        /// Route the centreline around something sitting on the deck.
+        ///
+        /// Obstacles go on the racing line on purpose - dodging them is the point -
+        /// but respawn follows the centreline, so the centreline has to dodge too,
+        /// or a fall near one drops you straight back onto it.
+        void Detour(float lateral, float halfWidth, float centreBack, float halfDepth, float leadIn)
+        {
+            float deckL = -width * 0.5f, deckR = width * 0.5f;
+            float obL = lateral - halfWidth, obR = lateral + halfWidth;
+            float leftGap = obL - deckL, rightGap = deckR - obR;
+            float bypass = leftGap > rightGap ? deckL + leftGap * 0.5f : deckR - rightGap * 0.5f;
+
+            InsertAlong(cur + Frame * new Vector3(bypass, 0f, -(centreBack + halfDepth + leadIn)));
+            InsertAlong(cur + Frame * new Vector3(bypass, 0f, -(centreBack - halfDepth - 1.5f)));
         }
 
         public CourseBuilder Enemy(EnemyKind kind, float lateral, float back, float range = 16f, float speed = 9f)
