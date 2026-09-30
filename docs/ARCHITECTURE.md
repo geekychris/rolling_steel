@@ -186,6 +186,23 @@ Two properties fall out of it and are worth preserving:
 `Level.Anchors` records the cursor position after each source line, which is how
 the editor parks the marble at the piece you are editing.
 
+## The cinematic orbit
+
+`IsoCamera` has a second mode that takes over whenever nobody is driving: a slow
+orbit around a focus point the director chooses. On the title card the focus
+drifts along the course centreline, so it is a flyover of the whole course rather
+than a turntable of one spot; on a cleared course it circles the finish pad.
+
+The detail that matters is *what* gets smoothed. Smoothing the camera position
+leaves it trailing its own rotation, and because the orbit radius is 90 units,
+even a few degrees of lag throws the subject ten units off centre. The orbit
+therefore eases the **focus point** and then places the camera exactly on the
+circle around it. The focus is also lifted a few units above the subject, which
+drops the subject into clear screen space below the banner.
+
+The player's own yaw is never touched, so leaving the orbit eases back to
+whatever angle they were playing at.
+
 ## The wipeout
 
 Deaths are physical rather than a particle system: `DeathFx` spawns chunky shards

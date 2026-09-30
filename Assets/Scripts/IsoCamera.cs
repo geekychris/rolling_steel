@@ -18,6 +18,16 @@ namespace RollingSteel
         /// Set while the marble is falling to its death: keep framing the course
         /// it fell from instead of following it down into the dark.
         public bool Hold;
+
+        /// Cinematic orbit: a slow helicopter pass around a point somebody else
+        /// chooses. Used for the title attract and the end-of-course celebration.
+        /// The player's own yaw is left untouched, so leaving the orbit eases back
+        /// to whatever angle they were playing at.
+        public bool Cinematic { get; private set; }
+        public Vector3 CineFocus;
+        public float CineSpin = 12f;
+        public float CinePitch = 26f;
+        public float CineSize = 22f;
         public float LookAhead = 0.35f;
 
         const float YawSpeed = 100f;
@@ -33,6 +43,8 @@ namespace RollingSteel
         Vector3 vel;
         float yawNow, pitchNow, sizeNow;
         float shake;
+        float cineYaw;
+        Vector3 cineFocusNow;
         float qHold, eHold;
         bool wasSpinning;
 
@@ -105,6 +117,7 @@ namespace RollingSteel
 
         void LateUpdate()
         {
+            if (Cinematic) { OrbitStep(); return; }
             if (Target == null) return;
 
             float k = 1f - Mathf.Exp(-12f * Time.deltaTime);
@@ -129,6 +142,30 @@ namespace RollingSteel
             transform.position += ShakeOffset();
         }
 
+        /// One frame of the helicopter orbit. Runs on unscaled time so the
+        /// celebration keeps moving through the slow-motion of a wipeout.
+        void OrbitStep()
+        {
+            float dt = Time.unscaledDeltaTime;
+            cineYaw += CineSpin * dt;
+
+            float k = 1f - Mathf.Exp(-3.5f * dt);
+            yawNow = cineYaw;
+            pitchNow = Mathf.Lerp(pitchNow, CinePitch, k);
+            sizeNow = Mathf.Lerp(sizeNow, CineSize, k);
+            cam.orthographicSize = sizeNow;
+
+            // Ease the point being looked at, then place the camera exactly on the
+            // orbit around it. Smoothing the camera *position* instead leaves it
+            // trailing its own rotation, and at a 90-unit orbit radius even a few
+            // degrees of lag throws the subject well off centre.
+            cineFocusNow = Vector3.SmoothDamp(cineFocusNow, CineFocus, ref vel, 0.35f);
+
+            Quaternion rig = Quaternion.Euler(pitchNow, yawNow, 0f);
+            transform.position = cineFocusNow - rig * Vector3.forward * Distance + ShakeOffset();
+            transform.rotation = rig;
+        }
+
         Vector3 ShakeOffset()
         {
             if (shake <= 0.001f) return Vector3.zero;
@@ -136,6 +173,21 @@ namespace RollingSteel
             shake = Mathf.MoveTowards(shake, 0f, Time.unscaledDeltaTime * 3.5f);
             return o;
         }
+
+        public void BeginCinematic(Vector3 focus)
+        {
+            if (!Cinematic)
+            {
+                cineYaw = yawNow;
+                CineFocus = focus;
+                // start from whatever the camera was already looking at, so the
+                // move into the orbit is a glide rather than a cut
+                cineFocusNow = transform.position + transform.forward * Distance;
+            }
+            Cinematic = true;
+        }
+
+        public void EndCinematic() => Cinematic = false;
 
         /// A knock, for deaths. Decays on unscaled time so it still reads during
         /// the slow-motion beat.

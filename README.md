@@ -44,6 +44,12 @@ rotatable camera workable in a game that is otherwise all momentum.
 
 ![The same corner from three camera angles](docs/images/views.png)
 
+When nobody is driving, the camera goes on a slow helicopter orbit by itself: a
+travelling flyover of the course behind the title card, and a circle of the
+finish pad when a course is cleared.
+
+![The title flyover and the end-of-course orbit](docs/images/flyover.png)
+
 ## The courses
 
 Six, each with its own scenery theme and its own synthesised track.

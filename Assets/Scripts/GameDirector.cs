@@ -16,7 +16,7 @@ namespace RollingSteel
 
         const float DeathPenalty = 3f;
         const float DyingHold = 1.35f;   // long enough for the shatter to read
-        const float ClearHold = 2.2f;
+        const float ClearHold = 3.4f;    // long enough for the flyover to read
 
         public GameState State { get; private set; } = GameState.Title;
         public MarbleController Marble { get; private set; }
@@ -42,6 +42,7 @@ namespace RollingSteel
         float stateTimer;
         float lastWarnBeep;
         bool fallWhistle;
+        float cineT;                     // position of the title flyover along the course
 
         /// Screen flash, driven by the HUD. Decays on unscaled time.
         public float Flash { get; private set; }
@@ -101,6 +102,7 @@ namespace RollingSteel
             if (autoStart) { State = GameState.Playing; Sfx.Play(Sfx.Clip.Start); }
             else { State = GameState.Title; Marble.Frozen = true; }
 
+            cineT = 0f;
             PlayTheme(State == GameState.Title ? 0 : CurrentLevel.MusicTheme);
         }
 
@@ -256,6 +258,7 @@ namespace RollingSteel
                 case GameState.LevelClear: if (stateTimer >= ClearHold) Advance(); break;
             }
 
+            UpdateCinematic();
             UpdateRollAudio();
         }
 
@@ -305,6 +308,54 @@ namespace RollingSteel
                 float d = (path[i] - pos).sqrMagnitude;
                 if (d < best) { best = d; demoWp = i; }
             }
+        }
+
+        /// The camera goes on a slow helicopter orbit whenever nobody is driving:
+        /// a travelling flyover of the course behind the title card, and a circle
+        /// of the finish pad when a course is cleared.
+        void UpdateCinematic()
+        {
+            if (isoCam == null || built == null) return;
+
+            switch (State)
+            {
+                case GameState.Title:
+                    // drift the focus along the course, so it is a flyover of the
+                    // whole thing rather than a turntable of one spot
+                    cineT = Mathf.Repeat(cineT + Time.unscaledDeltaTime * 0.045f, 1f);
+                    isoCam.CineSpin = 9f;
+                    isoCam.CinePitch = 27f;
+                    isoCam.CineSize = 20f;
+                    isoCam.BeginCinematic(PathPointAt(cineT) + Vector3.up * 5f);
+                    isoCam.CineFocus = PathPointAt(cineT) + Vector3.up * 5f;
+                    break;
+
+                case GameState.LevelClear:
+                case GameState.Won:
+                    isoCam.CineSpin = 34f;
+                    isoCam.CinePitch = 30f;
+                    isoCam.CineSize = 16f;
+                    // look a little above the pad, so the pad itself sits below
+                    // the banner rather than behind it
+                    isoCam.BeginCinematic(built.GoalWorld + Vector3.up * 7f);
+                    isoCam.CineFocus = built.GoalWorld + Vector3.up * 7f;
+                    break;
+
+                default:
+                    if (isoCam.Cinematic) isoCam.EndCinematic();
+                    break;
+            }
+        }
+
+        /// A point along the course centreline, 0 at the start and 1 at the goal.
+        Vector3 PathPointAt(float t)
+        {
+            var path = built.PathWorld;
+            if (path == null || path.Count == 0) return built.SpawnWorld;
+
+            float f = Mathf.Clamp01(t) * (path.Count - 1);
+            int i = Mathf.Clamp(Mathf.FloorToInt(f), 0, path.Count - 2);
+            return Vector3.Lerp(path[i], path[i + 1], f - i) + Vector3.up * 2f;
         }
 
         void TickPlaying()

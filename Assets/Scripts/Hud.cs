@@ -118,10 +118,10 @@ namespace RollingSteel
 
         void TitleCard(float w, float h)
         {
-            Box(new Rect(0f, 0f, w, h), new Color(0.02f, 0.03f, 0.07f, 0.72f));
+            Box(new Rect(0f, 0f, w, h), new Color(0.02f, 0.03f, 0.07f, 0.42f));   // let the flyover through
 
             Text(new Rect(0f, h * 0.24f, w, 70f * s), "ROLLING STEEL", huge, Amber);
-            Text(new Rect(0f, h * 0.24f + 62f * s, w, 30f * s), "three courses, one clock", small, Cyan);
+            Text(new Rect(0f, h * 0.24f + 62f * s, w, 30f * s), "six courses, one clock", small, Cyan);
 
             string[] lines =
             {
