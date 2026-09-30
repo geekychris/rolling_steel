@@ -32,6 +32,7 @@ assets under `Assets/Resources/Mat/`, created by an editor script. See
 | `CourseScript.cs` | the course file format: parse, render, and build |
 | `CourseStore.cs` | where course files live; seeding and fallback |
 | `CourseEditor.cs` | the in-game editor |
+| `Player.cs` | one racer: marble, camera, clock, and their own disasters |
 | `Progress.cs` | best times and medals, persisted as JSON |
 | `Ghost.cs` | recording and playback of your best run |
 | `Music.cs` | step sequencer and synth; the whole soundtrack |
@@ -187,6 +188,28 @@ Two properties fall out of it and are worth preserving:
 
 `Level.Anchors` records the cursor position after each source line, which is how
 the editor parks the marble at the piece you are editing.
+
+## One player, or two
+
+`GameDirector` holds a **list of `Player`**, each owning a marble, a camera rig, a
+clock, a fall count and its own dying state. Single player is a list of one, so
+two-player is not a mode bolted onto the side — it is the same code with a second
+entry, and the single-player path exercises it on every run.
+
+The split falls out of that: each player's camera gets a viewport rect, and the
+HUD draws anything a player owns inside that player's rect and anything about the
+race as a whole across the middle.
+
+Two things had to stop being global to make it work. **Dying** was a game state
+that froze everything, which would have frozen the other player's race too; it is
+now a per-player flag ticked inside `Playing`. And the **slow-motion beat** on a
+wipeout is single-player only, for the same reason — `Time.timeScale` is not
+something one player can be allowed to spend.
+
+Hazards used to call `KillMarble(reason)` on the one marble there was. They now
+pass the `MarbleController` they actually hit, and chasers steer at
+`NearestMarble` rather than *the* marble, which quietly turns them into a
+decision when there are two.
 
 ## Times, medals and ghosts
 

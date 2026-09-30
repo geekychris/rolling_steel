@@ -7,8 +7,8 @@ namespace RollingSteel
     {
         void OnTriggerEnter(Collider other)
         {
-            if (other.GetComponentInParent<MarbleController>() != null)
-                GameDirector.Instance?.KillMarble("DISSOLVED");
+            var marble = other.GetComponentInParent<MarbleController>();
+            if (marble != null) GameDirector.Instance?.Kill(marble, "DISSOLVED");
         }
     }
 
@@ -17,8 +17,8 @@ namespace RollingSteel
     {
         void OnTriggerEnter(Collider other)
         {
-            if (other.GetComponentInParent<MarbleController>() != null)
-                GameDirector.Instance?.ReachGoal();
+            var marble = other.GetComponentInParent<MarbleController>();
+            if (marble != null) GameDirector.Instance?.ReachGoal(marble);
         }
     }
 
@@ -57,9 +57,10 @@ namespace RollingSteel
         void FixedUpdate()
         {
             var director = GameDirector.Instance;
-            if (director == null || !director.MarbleIsLive) return;
+            if (director == null || !director.AnyMarbleLive) return;
 
-            var marble = director.Marble;
+            // chase whoever is closest, which in two-player is a decision
+            var marble = director.NearestMarble(transform.position);
             if (marble == null) return;
 
             if (spec.Kind == EnemyKind.Wanderer)
@@ -87,8 +88,8 @@ namespace RollingSteel
         void OnTriggerEnter(Collider other)
         {
             if (spec.Kind != EnemyKind.Wanderer) return;
-            if (other.GetComponentInParent<MarbleController>() != null)
-                GameDirector.Instance?.KillMarble("EATEN");
+            var marble = other.GetComponentInParent<MarbleController>();
+            if (marble != null) GameDirector.Instance?.Kill(marble, "EATEN");
         }
 
         void OnCollisionEnter(Collision c)

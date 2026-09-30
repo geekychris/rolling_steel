@@ -23,6 +23,13 @@ namespace RollingSteel
         public Vector2 ScriptedInput;
         public bool UseScriptedInput;
 
+        /// Keys this marble answers to. Single player listens to both WASD and the
+        /// arrows; in two-player they are split one set each.
+        public KeyCode[] UpKeys = { KeyCode.W, KeyCode.UpArrow };
+        public KeyCode[] DownKeys = { KeyCode.S, KeyCode.DownArrow };
+        public KeyCode[] LeftKeys = { KeyCode.A, KeyCode.LeftArrow };
+        public KeyCode[] RightKeys = { KeyCode.D, KeyCode.RightArrow };
+
         Transform cam;
         MeshRenderer view;
         bool groundedThisStep;
@@ -55,9 +62,7 @@ namespace RollingSteel
                 return;
             }
 
-            Vector2 raw = UseScriptedInput
-                ? ScriptedInput
-                : new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
+            Vector2 raw = UseScriptedInput ? ScriptedInput : ReadKeys();
 
             if (cam != null && raw.sqrMagnitude > 0.0001f)
             {
@@ -82,6 +87,20 @@ namespace RollingSteel
             }
 
             RecordSafeSpot();
+        }
+
+        static bool AnyHeld(KeyCode[] keys)
+        {
+            if (keys == null) return false;
+            foreach (var k in keys) if (Input.GetKey(k)) return true;
+            return false;
+        }
+
+        Vector2 ReadKeys()
+        {
+            float h = (AnyHeld(RightKeys) ? 1f : 0f) - (AnyHeld(LeftKeys) ? 1f : 0f);
+            float v = (AnyHeld(UpKeys) ? 1f : 0f) - (AnyHeld(DownKeys) ? 1f : 0f);
+            return new Vector2(h, v);
         }
 
         void RecordSafeSpot()

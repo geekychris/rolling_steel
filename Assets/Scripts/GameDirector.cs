@@ -19,20 +19,35 @@ namespace RollingSteel
         const float ClearHold = 3.4f;    // long enough for the flyover to read
 
         public GameState State { get; private set; } = GameState.Title;
-        public MarbleController Marble { get; private set; }
-        public float TimeLeft { get; private set; }
+        readonly List<Player> players = new List<Player>();
+        public IReadOnlyList<Player> Players => players;
+        public Player P1 => players[0];
+        public int PlayerCount => players.Count;
+        /// How many players the next run will use; chosen on the title screen.
+        public int WantPlayers { get; private set; } = 1;
+
+        public MarbleController Marble => players.Count > 0 ? players[0].Marble : null;
+        public float TimeLeft => players.Count > 0 ? players[0].TimeLeft : 0f;
         public int LevelIndex { get; private set; }
-        public int Deaths { get; private set; }
+        public int Deaths => players.Count > 0 ? players[0].Deaths : 0;
         /// Seconds spent on the current course, and on the run so far.
-        public float CourseTime { get; private set; }
-        public float RunTime { get; private set; }
+        public float CourseTime => players.Count > 0 ? players[0].CourseTime : 0f;
+        public float RunTime => players.Count > 0 ? players[0].RunTime : 0f;
         public int LastMedal { get; private set; }
         public float LastCourseTime { get; private set; }
         public bool LastWasBest { get; private set; }
         /// Which course the title screen has highlighted.
         public int TitleSelect { get; private set; }
-        public string DeathReason { get; private set; } = "";
-        public bool MarbleIsLive => State == GameState.Playing && !Editing;
+        public string DeathReason => players.Count > 0 ? players[0].DeathReason : "";
+        public bool AnyMarbleLive
+        {
+            get
+            {
+                if (State != GameState.Playing || Editing) return false;
+                foreach (var p in players) if (p.Racing) return true;
+                return false;
+            }
+        }
         public bool Editing => editor != null && editor.Active;
         public float KillY => built?.KillY ?? -200f;
         public Level CurrentLevel => levels[Mathf.Clamp(LevelIndex, 0, levels.Count - 1)];
@@ -49,8 +64,6 @@ namespace RollingSteel
         int currentTheme = -1;
         bool musicMuted;
         float stateTimer;
-        float lastWarnBeep;
-        bool fallWhistle;
         float cineT;
         int startedAt;
 
@@ -61,9 +74,8 @@ namespace RollingSteel
         GameObject ghostGo;
         Renderer ghostView;                     // position of the title flyover along the course
 
-        /// Screen flash, driven by the HUD. Decays on unscaled time.
-        public float Flash { get; private set; }
-        public Color FlashColor { get; private set; } = Color.white;
+        /// Which player took the last course, for the two-player banner.
+        public Player LastWinner { get; private set; }
 
         // ---- headless capture / demo hooks --------------------------------
         bool demoMode, autoStart;
@@ -111,7 +123,8 @@ namespace RollingSteel
             musicSrc.mute = musicMuted;
 
             BuildRig();
-            BuildMarble();
+            BuildPlayers(WantPlayers);
+            BuildGhost();
             gameObject.AddComponent<Hud>();
             editor = gameObject.AddComponent<CourseEditor>();
 
@@ -138,6 +151,10 @@ namespace RollingSteel
                     case "-dumpmusic": if (i + 1 < a.Length) musicDumpDir = a[++i]; break;
                     case "-mute": musicMuted = true; break;
                     case "-courses": if (i + 1 < a.Length) coursesDir = a[++i]; break;
+                    case "-players":
+                        if (i + 1 < a.Length && int.TryParse(a[++i], out var n))
+                            WantPlayers = Mathf.Clamp(n, 1, 2);
+                        break;
 
                     // dev aids: force a wipeout, and choose when screenshots land,
                     // so the death effects can be captured without waiting for the
@@ -163,14 +180,6 @@ namespace RollingSteel
 
         void BuildRig()
         {
-            var camGo = new GameObject("MainCamera") { tag = "MainCamera" };
-            cam = camGo.AddComponent<Camera>();
-            cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = new Color(0.05f, 0.06f, 0.11f);
-            camGo.AddComponent<AudioListener>();
-            isoCam = camGo.AddComponent<IsoCamera>();
-            isoCam.Yaw = startYaw;   // 0 puts the 45-degree course on the screen diagonal
-
             var lightGo = new GameObject("KeyLight");
             var light = lightGo.AddComponent<Light>();
             light.type = LightType.Directional;
@@ -199,26 +208,68 @@ namespace RollingSteel
             RenderSettings.fogEndDistance = 135f;
         }
 
-        void BuildMarble()
+        /// Rebuild the roster. Each player gets their own marble and their own
+        /// camera; in two-player the viewports split the screen down the middle.
+        void BuildPlayers(int count)
         {
-            var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            go.name = "Marble";
-            go.transform.localScale = Vector3.one * (CourseBuilder.MarbleRadius * 2f);
-            go.GetComponent<MeshRenderer>().sharedMaterial = MatLib.Get("Marble");
-            go.GetComponent<SphereCollider>().sharedMaterial = MatLib.Marble;
+            foreach (var p in players)
+            {
+                if (p.Marble != null) Destroy(p.Marble.gameObject);
+                if (p.Cam != null) Destroy(p.Cam.gameObject);
+            }
+            players.Clear();
 
-            Marble = go.AddComponent<MarbleController>();
-            Marble.Bind(cam);
+            for (int i = 0; i < count; i++)
+            {
+                var p = new Player { Index = i };
 
-            rollSrc = go.AddComponent<AudioSource>();
-            rollSrc.clip = Sfx.Roll;
-            rollSrc.loop = true;
-            rollSrc.volume = 0f;
-            rollSrc.spatialBlend = 0f;
-            rollSrc.Play();
+                var camGo = new GameObject($"Camera{i + 1}");
+                if (i == 0) { camGo.tag = "MainCamera"; camGo.AddComponent<AudioListener>(); }
+                p.Cam = camGo.AddComponent<Camera>();
+                p.Cam.clearFlags = CameraClearFlags.SolidColor;
+                p.Cam.backgroundColor = new Color(0.05f, 0.06f, 0.11f);
+                p.Cam.rect = count == 1
+                    ? new Rect(0f, 0f, 1f, 1f)
+                    : new Rect(i * 0.5f, 0f, 0.5f, 1f);
 
-            isoCam.Target = go.transform;
+                p.Rig = camGo.AddComponent<IsoCamera>();
+                p.Rig.Yaw = startYaw;
+                if (count > 1) p.Rig.Size = 10f;      // half the width, so pull in
 
+                var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                go.name = "Marble" + (i + 1);
+                go.transform.localScale = Vector3.one * (CourseBuilder.MarbleRadius * 2f);
+                go.GetComponent<MeshRenderer>().sharedMaterial = MatLib.Get(i == 0 ? "Marble" : "MarbleTwo");
+                go.GetComponent<SphereCollider>().sharedMaterial = MatLib.Marble;
+
+                p.Marble = go.AddComponent<MarbleController>();
+                p.Marble.Bind(p.Cam);
+                if (count > 1)
+                {
+                    // one keyboard, two drivers
+                    p.Marble.UpKeys = new[] { i == 0 ? KeyCode.W : KeyCode.UpArrow };
+                    p.Marble.DownKeys = new[] { i == 0 ? KeyCode.S : KeyCode.DownArrow };
+                    p.Marble.LeftKeys = new[] { i == 0 ? KeyCode.A : KeyCode.LeftArrow };
+                    p.Marble.RightKeys = new[] { i == 0 ? KeyCode.D : KeyCode.RightArrow };
+                }
+
+                p.Roll = go.AddComponent<AudioSource>();
+                p.Roll.clip = Sfx.Roll;
+                p.Roll.loop = true;
+                p.Roll.volume = 0f;
+                p.Roll.spatialBlend = 0f;
+                p.Roll.Play();
+
+                p.Rig.Target = go.transform;
+                players.Add(p);
+            }
+
+            cam = players[0].Cam;
+            isoCam = players[0].Rig;
+        }
+
+        void BuildGhost()
+        {
             ghostGo = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             ghostGo.name = "Ghost";
             ghostGo.transform.localScale = Vector3.one * (CourseBuilder.MarbleRadius * 2f);
@@ -236,26 +287,31 @@ namespace RollingSteel
             LevelIndex = index;
             built = LevelBuilder.Build(levels[index]);
 
-            CourseTime = 0f;
             ghostRec.Clear();
             ghostAccum = 0f;
-            ghostData = Ghost.Load(levels[index].Name);
+            ghostData = players.Count == 1 ? Ghost.Load(levels[index].Name) : null;
             if (ghostView != null) ghostView.enabled = false;
 
-            if (resetClock) TimeLeft = 0f;
-            TimeLeft += levels[index].TimeBonus;
-            Debug.Log($"[level] {index + 1}/{levels.Count} {levels[index].Name} clock={TimeLeft:0.0}");
-
-            PlayTheme(levels[index].MusicTheme);
-
-            Marble.Frozen = false;
-            Marble.SetVisible(true);
-            fallWhistle = false;
+            LastWinner = null;
             Time.timeScale = 1f;
-            Marble.Teleport(built.SpawnWorld);
-            isoCam.Hold = false;
-            isoCam.Snap();
-            ResyncDemo();
+
+            Vector3 across = built.Root.transform.right;
+            for (int i = 0; i < players.Count; i++)
+            {
+                var p = players[i];
+                p.ResetForCourse(levels[index].TimeBonus, resetClock);
+                p.Marble.Frozen = false;
+                p.Marble.SetVisible(true);
+                // two marbles cannot start on the same square inch
+                p.Marble.Teleport(built.SpawnWorld +
+                                  (players.Count > 1 ? across * (i == 0 ? -1.3f : 1.3f) : Vector3.zero));
+                p.Rig.Hold = false;
+                p.Rig.Snap();
+                ResyncDemo(p);
+            }
+
+            Debug.Log($"[level] {index + 1}/{levels.Count} {levels[index].Name} clock={players[0].TimeLeft:0.0}");
+            PlayTheme(levels[index].MusicTheme);
         }
 
         // ---- loop ----------------------------------------------------------
@@ -264,7 +320,8 @@ namespace RollingSteel
         {
             clock += Time.unscaledDeltaTime;
             stateTimer += Time.unscaledDeltaTime;
-            Flash = Mathf.MoveTowards(Flash, 0f, Time.unscaledDeltaTime * 3.4f);
+            foreach (var p in players)
+                p.Flash = Mathf.MoveTowards(p.Flash, 0f, Time.unscaledDeltaTime * 3.4f);
 
             HandleKeys();
             HandleCapture();
@@ -272,23 +329,20 @@ namespace RollingSteel
             if (killAt > 0f && !killTriggered && clock >= killAt && State == GameState.Playing)
             {
                 killTriggered = true;
-                KillMarble("FELL OFF");
+                Kill(players[0].Marble, "FELL OFF");
             }
 
-            if (demoMode && Marble != null && !Editing)
-            {
-                Marble.UseScriptedInput = true;
-                Marble.ScriptedInput = DemoInput();
-            }
+            if (demoMode && !Editing)
+                foreach (var p in players)
+                {
+                    if (p.Marble == null) continue;
+                    p.Marble.UseScriptedInput = true;
+                    p.Marble.ScriptedInput = DemoInput(p);
+                }
 
             switch (State)
             {
                 case GameState.Playing: if (!Editing) TickPlaying(); break;
-                case GameState.Dying:
-                    // ease back out of slow motion rather than snapping
-                    Time.timeScale = Mathf.Lerp(0.3f, 1f, Mathf.Clamp01(stateTimer / DyingHold));
-                    if (stateTimer >= DyingHold) Respawn();
-                    break;
                 case GameState.LevelClear: if (stateTimer >= ClearHold) Advance(); break;
             }
 
@@ -298,49 +352,50 @@ namespace RollingSteel
 
         /// Steer along the course centreline, then convert that world-space wish
         /// into camera-relative stick input so the demo works at any view angle.
-        Vector2 DemoInput()
+        Vector2 DemoInput(Player pl)
         {
             var path = built?.PathWorld;
             if (path == null || path.Count == 0) return Vector2.up;
 
-            Vector3 pos = Marble.transform.position;
-            while (demoWp < path.Count - 1)
+            Vector3 pos = pl.Marble.transform.position;
+            while (pl.DemoWp < path.Count - 1)
             {
-                Vector3 d = path[demoWp] - pos;
+                Vector3 d = path[pl.DemoWp] - pos;
                 d.y = 0f;
-                if (d.magnitude < 2.0f) demoWp++; else break;
+                if (d.magnitude < 2.0f) pl.DemoWp++; else break;
             }
 
-            Vector3 toWp = path[demoWp] - pos;
+            Vector3 toWp = path[pl.DemoWp] - pos;
             toWp.y = 0f;
             if (toWp.sqrMagnitude < 0.0001f) return Vector2.up;
 
             // Velocity matching rather than full throttle: this brakes into turns
             // and on ice, which is what a human does and what the course expects.
             const float CruiseSpeed = 8.5f;
-            Vector3 v = Marble.Body.linearVelocity;
+            Vector3 v = pl.Marble.Body.linearVelocity;
             v.y = 0f;
             Vector3 err = toWp.normalized * CruiseSpeed - v;
             Vector3 wish = err.sqrMagnitude < 0.0001f ? toWp.normalized : err.normalized;
 
-            Vector3 f = Vector3.ProjectOnPlane(cam.transform.forward, Vector3.up).normalized;
-            Vector3 r = Vector3.ProjectOnPlane(cam.transform.right, Vector3.up).normalized;
+            Transform c = pl.Cam.transform;
+            Vector3 f = Vector3.ProjectOnPlane(c.forward, Vector3.up).normalized;
+            Vector3 r = Vector3.ProjectOnPlane(c.right, Vector3.up).normalized;
             return new Vector2(Vector3.Dot(wish, r), Vector3.Dot(wish, f));
         }
 
         /// Snap the demo driver onto whichever waypoint is nearest right now.
-        void ResyncDemo()
+        void ResyncDemo(Player p)
         {
-            demoWp = 0;
+            p.DemoWp = 0;
             var path = built?.PathWorld;
-            if (path == null || path.Count == 0 || Marble == null) return;
+            if (path == null || path.Count == 0 || p.Marble == null) return;
 
             float best = float.MaxValue;
-            Vector3 pos = Marble.transform.position;
+            Vector3 pos = p.Marble.transform.position;
             for (int i = 0; i < path.Count; i++)
             {
                 float d = (path[i] - pos).sqrMagnitude;
-                if (d < best) { best = d; demoWp = i; }
+                if (d < best) { best = d; p.DemoWp = i; }
             }
         }
 
@@ -354,34 +409,40 @@ namespace RollingSteel
             switch (State)
             {
                 case GameState.Title:
-                    if (LevelIndex != TitleSelect) { LoadLevel(TitleSelect, resetClock: true); Marble.Frozen = true; }
+                    if (LevelIndex != TitleSelect) { LoadLevel(TitleSelect, resetClock: true); FreezeAll(); }
                     // drift the focus along the course, so it is a flyover of the
                     // whole thing rather than a turntable of one spot
                     cineT = Mathf.Repeat(cineT + Time.unscaledDeltaTime * 0.045f, 1f);
-                    isoCam.CineSpin = 9f;
-                    isoCam.CinePitch = 27f;
-                    isoCam.CineSize = 20f;
-                    isoCam.BeginCinematic(PathPointAt(cineT) + Vector3.up * 5f);
-                    isoCam.CineFocus = PathPointAt(cineT) + Vector3.up * 5f;
+                    OrbitAll(PathPointAt(cineT) + Vector3.up * 5f, 9f, 27f, 20f);
                     break;
 
                 case GameState.LevelClear:
                 case GameState.Won:
-                    isoCam.CineSpin = 34f;
-                    isoCam.CinePitch = 30f;
-                    isoCam.CineSize = 16f;
                     // look a little above the pad, so the pad itself sits below
                     // the banner rather than behind it
-                    isoCam.BeginCinematic(built.GoalWorld + Vector3.up * 7f);
-                    isoCam.CineFocus = built.GoalWorld + Vector3.up * 7f;
+                    OrbitAll(built.GoalWorld + Vector3.up * 7f, 34f, 30f, 16f);
                     break;
 
                 default:
-                    if (isoCam.Cinematic) isoCam.EndCinematic();
+                    foreach (var pl in players) if (pl.Rig.Cinematic) pl.Rig.EndCinematic();
                     break;
             }
 
             if (State == GameState.Title && ghostView != null) ghostView.enabled = false;
+        }
+
+        /// Put every camera on the same orbit. In two-player both halves of the
+        /// screen fly around the same point, which reads as one shot rather than two.
+        void OrbitAll(Vector3 focus, float spin, float pitch, float size)
+        {
+            foreach (var p in players)
+            {
+                p.Rig.CineSpin = spin;
+                p.Rig.CinePitch = pitch;
+                p.Rig.CineSize = players.Count > 1 ? size * 0.8f : size;
+                p.Rig.BeginCinematic(focus);
+                p.Rig.CineFocus = focus;
+            }
         }
 
         /// A point along the course centreline, 0 at the start and 1 at the goal.
@@ -397,23 +458,56 @@ namespace RollingSteel
 
         void TickPlaying()
         {
-            TimeLeft -= Time.deltaTime;
-            CourseTime += Time.deltaTime;
-            RunTime += Time.deltaTime;
-            RecordGhost();
-            PlayGhost();
-
-            if (TimeLeft <= 10f && TimeLeft > 0f && clock - lastWarnBeep > 1f)
+            bool everyoneDone = true;
+            foreach (var p in players)
             {
-                lastWarnBeep = clock;
+                TickPlayer(p);
+                if (!p.OutOfTime) everyoneDone = false;
+            }
+
+            // a ghost only means anything when there is one marble to compare to
+            if (players.Count == 1) { RecordGhost(); PlayGhost(); }
+
+            if (everyoneDone)
+            {
+                Enter(GameState.GameOver);
+                FreezeAll();
+                Sfx.Play(Sfx.Clip.Death);
+            }
+        }
+
+        void TickPlayer(Player p)
+        {
+            if (p.Finished || p.Marble == null) return;
+
+            if (p.Dying)
+            {
+                p.DyingTimer += Time.unscaledDeltaTime;
+                // slow motion is a single-player luxury; it would freeze the other
+                // player's race too
+                if (players.Count == 1)
+                    Time.timeScale = Mathf.Lerp(0.3f, 1f, Mathf.Clamp01(p.DyingTimer / DyingHold));
+                if (p.DyingTimer >= DyingHold) Respawn(p);
+                return;
+            }
+
+            if (p.OutOfTime) return;
+
+            p.TimeLeft -= Time.deltaTime;
+            p.CourseTime += Time.deltaTime;
+            p.RunTime += Time.deltaTime;
+
+            if (p.TimeLeft <= 10f && p.TimeLeft > 0f && clock - p.LastWarnBeep > 1f)
+            {
+                p.LastWarnBeep = clock;
                 Sfx.Play(Sfx.Clip.Warn);
             }
 
-            if (TimeLeft <= 0f)
+            if (p.TimeLeft <= 0f)
             {
-                TimeLeft = 0f;
-                Enter(GameState.GameOver);
-                Marble.Frozen = true;
+                p.TimeLeft = 0f;
+                p.OutOfTime = true;
+                p.Marble.Frozen = true;
                 Sfx.Play(Sfx.Clip.Death);
                 return;
             }
@@ -421,18 +515,43 @@ namespace RollingSteel
             // How far it has dropped since it last had contact. Reacting to this
             // rather than an absolute floor means the fall is still on screen when
             // the camera stops following, so the wipeout is actually visible.
-            float dropped = Marble.LastGrounded.y - Marble.transform.position.y;
-            bool airborne = !Marble.Grounded;
+            float dropped = p.Marble.LastGrounded.y - p.Marble.transform.position.y;
+            bool airborne = !p.Marble.Grounded;
 
-            if (airborne && dropped > 4.5f && !fallWhistle)
+            if (airborne && dropped > 4.5f && !p.FallWhistle)
             {
-                fallWhistle = true;
+                p.FallWhistle = true;
                 Sfx.Play(Sfx.Clip.Fall);
             }
-            if (!airborne || dropped < 1f) fallWhistle = false;
+            if (!airborne || dropped < 1f) p.FallWhistle = false;
 
-            if ((airborne && dropped > 12f) || Marble.transform.position.y < KillY)
-                KillMarble("FELL OFF");
+            if ((airborne && dropped > 12f) || p.Marble.transform.position.y < KillY)
+                Kill(p.Marble, "FELL OFF");
+        }
+
+        void FreezeAll()
+        {
+            foreach (var p in players) if (p.Marble != null) p.Marble.Frozen = true;
+        }
+
+        public Player PlayerOf(MarbleController m)
+        {
+            foreach (var p in players) if (p.Marble == m) return p;
+            return null;
+        }
+
+        /// Closest racing marble to a point - what the chasers steer at.
+        public MarbleController NearestMarble(Vector3 from)
+        {
+            MarbleController best = null;
+            float bestD = float.MaxValue;
+            foreach (var p in players)
+            {
+                if (!p.Racing || p.Marble == null) continue;
+                float d = (p.Marble.transform.position - from).sqrMagnitude;
+                if (d < bestD) { bestD = d; best = p.Marble; }
+            }
+            return best;
         }
 
         /// Sample the marble on a fixed clock so playback lines up with course
@@ -494,6 +613,8 @@ namespace RollingSteel
                         TitleSelect = Mathf.Min(TitleSelect + 1, levels.Count - 1);
                     if (Input.GetKeyDown(KeyCode.UpArrow) || Input.GetKeyDown(KeyCode.W))
                         TitleSelect = Mathf.Max(TitleSelect - 1, 0);
+                    if (Input.GetKeyDown(KeyCode.RightArrow) || Input.GetKeyDown(KeyCode.LeftArrow))
+                        WantPlayers = WantPlayers == 1 ? 2 : 1;
                     if (go) StartRun();
                     break;
                 case GameState.GameOver:
@@ -521,18 +642,16 @@ namespace RollingSteel
 
         void UpdateRollAudio()
         {
-            if (rollSrc == null) return;
-            bool live = State == GameState.Playing && Marble.Grounded;
-            float s = live ? Mathf.Clamp01(Marble.Speed / Marble.MaxSpeed) : 0f;
-            rollSrc.volume = Mathf.Lerp(rollSrc.volume, s * 0.22f, Time.deltaTime * 8f);
-            rollSrc.pitch = 0.6f + s * 0.9f;
+            foreach (var p in players)
+            {
+                if (p.Roll == null || p.Marble == null) continue;
+                bool live = State == GameState.Playing && p.Racing && p.Marble.Grounded;
+                float sp = live ? Mathf.Clamp01(p.Marble.Speed / p.Marble.MaxSpeed) : 0f;
+                p.Roll.volume = Mathf.Lerp(p.Roll.volume, sp * 0.22f, Time.deltaTime * 8f);
+                p.Roll.pitch = 0.6f + sp * 0.9f;
+            }
         }
 
-        // ---- transitions ----------------------------------------------------
-
-        /// Rebuild the current course from the editor's lines. A course that will
-        /// not build is left alone rather than taking the level down, so a
-        /// half-finished edit never strands you.
         public void RebuildFromEditor(List<Cmd> cmds, int parkLine)
         {
             Level lvl;
@@ -551,20 +670,24 @@ namespace RollingSteel
             if (parkLine >= 0 && parkLine < lvl.Anchors.Count)
                 spot = built.Root.transform.TransformPoint(lvl.Anchors[parkLine] + Vector3.up * 1.2f);
 
-            Marble.SetVisible(true);
-            Marble.Teleport(spot);
-            Marble.Frozen = true;
+            var p1 = players[0];
+            p1.Marble.SetVisible(true);
+            p1.Marble.Teleport(spot);
+            p1.Marble.Frozen = true;
             Time.timeScale = 1f;
-            isoCam.Hold = false;
-            isoCam.Snap();
+            p1.Rig.Hold = false;
+            p1.Rig.Snap();
         }
 
         /// Leaving the editor drops you in wherever you were last parked.
         public void LeaveEditor()
         {
-            Marble.Frozen = State == GameState.Title;
-            fallWhistle = false;
-            ResyncDemo();
+            foreach (var p in players)
+            {
+                p.Marble.Frozen = State == GameState.Title;
+                p.FallWhistle = false;
+                ResyncDemo(p);
+            }
         }
 
         void ClearBuilt()
@@ -597,35 +720,47 @@ namespace RollingSteel
 
         public void StartRun(int from)
         {
-            Deaths = 0;
-            RunTime = 0f;
-            DeathReason = "";
+            if (players.Count != WantPlayers) BuildPlayers(WantPlayers);
+            foreach (var p in players)
+            {
+                p.Deaths = 0;
+                p.RunTime = 0f;
+                p.Wins = 0;
+                p.DeathReason = "";
+            }
             startedAt = Mathf.Clamp(from, 0, levels.Count - 1);
             LoadLevel(startedAt, resetClock: true);
             Enter(GameState.Playing);
             Sfx.Play(Sfx.Clip.Start);
         }
 
-        public void KillMarble(string reason)
+        /// Convenience for the single-player paths and the -killat dev flag.
+        public void KillMarble(string reason) => Kill(players[0].Marble, reason);
+
+        public void Kill(MarbleController marble, string reason)
         {
-            if (State != GameState.Playing) return;
+            var p = PlayerOf(marble);
+            if (p == null || State != GameState.Playing || !p.Racing) return;
 
             if (built?.Root != null)
             {
-                Vector3 cs = built.Root.transform.InverseTransformPoint(Marble.transform.position);
-                Vector3 lg = built.Root.transform.InverseTransformPoint(Marble.LastGrounded);
-                Debug.Log($"[death] {reason} course={LevelIndex + 1} z={cs.z:0.0} x={cs.x:0.0} y={cs.y:0.0} " +
+                Transform root = built.Root.transform;
+                Vector3 cs = root.InverseTransformPoint(p.Marble.transform.position);
+                Vector3 lg = root.InverseTransformPoint(p.Marble.LastGrounded);
+                Debug.Log($"[death] {reason} p{p.Index + 1} course={LevelIndex + 1} " +
+                          $"z={cs.z:0.0} x={cs.x:0.0} y={cs.y:0.0} " +
                           $"lastGround(z={lg.z:0.0} x={lg.x:0.0} y={lg.y:0.0})");
             }
-            DeathReason = reason;
-            Deaths++;
-            TimeLeft = Mathf.Max(0f, TimeLeft - DeathPenalty);
 
-            Vector3 at = Marble.transform.position;
-            Marble.Frozen = true;
-            Marble.SetVisible(false);
-            isoCam.Hold = true;
-            isoCam.Shake(1.4f);
+            p.DeathReason = reason;
+            p.Deaths++;
+            p.TimeLeft = Mathf.Max(0f, p.TimeLeft - DeathPenalty);
+
+            Vector3 at = p.Marble.transform.position;
+            p.Marble.Frozen = true;
+            p.Marble.SetVisible(false);
+            p.Rig.Hold = true;
+            p.Rig.Shake(1.4f);
 
             DeathFx.Burst(at, "Marble", 16, force: 12f);
             Sfx.Play(Sfx.Clip.Shatter);
@@ -634,54 +769,59 @@ namespace RollingSteel
             {
                 case "DISSOLVED":
                     Sfx.Play(Sfx.Clip.Sizzle);
-                    Flash = 0.85f; FlashColor = new Color(0.35f, 1f, 0.4f);
+                    p.Flash = 0.85f; p.FlashColor = new Color(0.35f, 1f, 0.4f);
                     break;
                 case "EATEN":
                     Sfx.Play(Sfx.Clip.Chomp);
-                    Flash = 0.85f; FlashColor = new Color(0.5f, 1f, 0.55f);
+                    p.Flash = 0.85f; p.FlashColor = new Color(0.5f, 1f, 0.55f);
+                    break;
+                case "CRUSHED":
+                    Sfx.Play(Sfx.Clip.Thud);
+                    p.Flash = 0.9f; p.FlashColor = new Color(1f, 0.55f, 0.3f);
                     break;
                 default:
-                    if (!fallWhistle) Sfx.Play(Sfx.Clip.Fall);
-                    Flash = 0.9f; FlashColor = new Color(1f, 0.45f, 0.35f);
+                    if (!p.FallWhistle) Sfx.Play(Sfx.Clip.Fall);
+                    p.Flash = 0.9f; p.FlashColor = new Color(1f, 0.45f, 0.35f);
                     break;
             }
 
-            // a beat of slow motion so the debris reads before the respawn
-            Time.timeScale = 0.3f;
-            Enter(GameState.Dying);
+            if (players.Count == 1) Time.timeScale = 0.3f;
+            p.Dying = true;
+            p.DyingTimer = 0f;
         }
 
-        void Respawn()
+        void Respawn(Player p)
         {
             Time.timeScale = 1f;
-            fallWhistle = false;
-            Marble.SetVisible(true);
+            p.Dying = false;
+            p.FallWhistle = false;
+            p.Marble.SetVisible(true);
 
-            if (TimeLeft <= 0f)
+            if (p.TimeLeft <= 0f)
             {
-                Enter(GameState.GameOver);
+                p.OutOfTime = true;
+                p.Marble.Frozen = true;
                 return;
             }
 
-            Marble.Teleport(RespawnPointOnCourse());
-            Marble.Frozen = false;
+            p.Marble.Teleport(RespawnPointOnCourse(p));
+            p.Marble.Frozen = false;
 
             foreach (var e in built.Enemies) if (e != null) e.ResetToHome();
-            isoCam.Hold = false;
-            isoCam.Snap();
-            ResyncDemo();
-            Enter(GameState.Playing);
+            p.Rig.Hold = false;
+            p.Rig.Snap();
+            ResyncDemo(p);
         }
 
         /// Put the marble back on the course centreline just behind where it was
         /// last on solid ground. Rewinding its own trail could strand it in mid-air
         /// over the spot that killed it, which turned into a death loop.
-        Vector3 RespawnPointOnCourse()
+        Vector3 RespawnPointOnCourse(Player p)
         {
             var path = built?.PathWorld;
             if (path == null || path.Count == 0) return built?.SpawnWorld ?? Vector3.zero;
 
-            Vector3 anchor = Marble.LastGrounded;
+            Vector3 anchor = p.Marble.LastGrounded;
             int best = -1;
             float bestD = float.MaxValue;
             for (int i = 0; i < path.Count; i++)
@@ -699,18 +839,34 @@ namespace RollingSteel
             return path[best] + Vector3.up * 0.4f;
         }
 
-        public void ReachGoal()
+        public void ReachGoal(MarbleController marble)
         {
-            if (State != GameState.Playing) return;
+            var p = PlayerOf(marble);
+            if (p == null || State != GameState.Playing || !p.Racing) return;
 
-            LastCourseTime = CourseTime;
-            LastMedal = Progress.MedalFor(CurrentLevel, CourseTime);
-            LastWasBest = Progress.SubmitCourse(CurrentLevel.Name, CourseTime, Deaths);
-            if (LastWasBest) Ghost.Save(CurrentLevel.Name, ghostRec);
+            p.Finished = true;
+            p.FinishTime = p.CourseTime;
+            p.Marble.Frozen = true;
 
-            Marble.Frozen = true;
-            Enter(GameState.LevelClear);
+            LastCourseTime = p.CourseTime;
+            LastMedal = Progress.MedalFor(CurrentLevel, p.CourseTime);
+
+            if (players.Count == 1)
+            {
+                LastWasBest = Progress.SubmitCourse(CurrentLevel.Name, p.CourseTime, p.Deaths);
+                if (LastWasBest) Ghost.Save(CurrentLevel.Name, ghostRec);
+            }
+            else if (LastWinner == null)
+            {
+                // first to the pad takes the course; the other is simply late
+                LastWinner = p;
+                p.Wins++;
+                LastWasBest = false;
+            }
+
             Sfx.Play(Sfx.Clip.Goal);
+            FreezeAll();
+            Enter(GameState.LevelClear);
         }
 
         void Advance()
@@ -718,9 +874,10 @@ namespace RollingSteel
             if (LevelIndex + 1 >= levels.Count)
             {
                 // a full run only counts if it actually started at the first course
-                if (startedAt == 0) LastWasBest = Progress.SubmitRun(RunTime, Deaths);
+                if (startedAt == 0 && players.Count == 1)
+                    LastWasBest = Progress.SubmitRun(RunTime, Deaths);
                 Enter(GameState.Won);
-                Marble.Frozen = true;
+                FreezeAll();
                 return;
             }
 
@@ -732,12 +889,12 @@ namespace RollingSteel
         /// 0..1 along the current course, for the HUD progress bar. Measured as
         /// distance along the route rather than course-space Z, because a curve
         /// can turn the course through 90 degrees and stop Z increasing at all.
-        public float CourseProgress()
+        public float CourseProgress(Player pl)
         {
             var path = built?.PathWorld;
-            if (path == null || path.Count == 0 || Marble == null) return 0f;
+            if (path == null || path.Count == 0 || pl?.Marble == null) return 0f;
 
-            Vector3 p = Marble.transform.position;
+            Vector3 p = pl.Marble.transform.position;
             int best = 0;
             float bestD = float.MaxValue;
             for (int i = 0; i < path.Count; i++)

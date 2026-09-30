@@ -44,6 +44,7 @@ public static class ProjectSetup
         Mat("Start", new Color(0.26f, 0.55f, 1.00f), 0.10f, 0.50f, new Color(0.06f, 0.16f, 0.42f));
         Fade("Ghost", new Color(0.55f, 0.95f, 1.00f, 0.38f), 0.25f, 0.85f);
         Mat("Marble", new Color(0.86f, 0.88f, 0.93f), 0.95f, 0.86f);
+        Mat("MarbleTwo", new Color(1.00f, 0.72f, 0.42f), 0.90f, 0.85f);
         Mat("Steel", new Color(0.33f, 0.34f, 0.39f), 0.90f, 0.70f);
         Mat("Blob", new Color(0.34f, 0.94f, 0.40f), 0.00f, 0.30f, new Color(0.09f, 0.42f, 0.11f));
 
