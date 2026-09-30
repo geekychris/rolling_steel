@@ -34,6 +34,7 @@ and what to do when the editor holds the project lock.
 | mouse wheel, `-` / `=` | zoom |
 | `M` | music on / off |
 | `Up` / `Down` on the title | choose which course to start from |
+| `Left` / `Right` on the title | one player or two |
 | `F1` | open the course editor |
 | `Space` / `Return` | start |
 | `R` | restart the run |
@@ -134,6 +135,18 @@ without reading the banner.
 | **Ice** | nearly frictionless. **Sand** kills your speed right when you need it |
 
 ![Obstacles](docs/images/obstacles.png)
+
+## Two players
+
+`Left`/`Right` on the title switches to two players. The screen splits down the
+middle, P1 drives with `WASD` and P2 with the arrow keys, and both race the same
+course at once with their own clocks and their own falls. First marble to the pad
+takes the course; the match is decided on courses won.
+
+Falling is private — one player wiping out does not slow the other down, which is
+why the slow-motion beat on a wipeout is single-player only.
+
+![Two players, split screen](docs/images/twoplayer.png)
 
 ## Times, medals and ghosts
 

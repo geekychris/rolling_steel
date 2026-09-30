@@ -46,6 +46,7 @@ for i in 1 2 3 4; do make verify || break; done
 | `-killat SECS` | force a wipeout, for capturing the death effects |
 | `-shotat T1,T2,…` | override the screenshot schedule |
 | `-courses DIR` | load courses from DIR (seeding it if empty) |
+| `-players N` | start with one or two players, skipping the title |
 | `-dumpmusic DIR` | render every theme to a WAV and exit |
 
 ```bash

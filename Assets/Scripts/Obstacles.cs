@@ -85,13 +85,20 @@ namespace RollingSteel
         void Crush()
         {
             var director = GameDirector.Instance;
-            if (director == null || !director.MarbleIsLive) return;
+            if (director == null || !director.AnyMarbleLive) return;
 
-            Vector3 d = director.Marble.transform.position - down;
-            if (Mathf.Abs(d.y) < 1.6f && new Vector2(d.x, d.z).magnitude < HalfWidth + 0.4f)
-                director.KillMarble("CRUSHED");
-            else
-                Sfx.Play(Sfx.Clip.Thud);
+            bool got = false;
+            foreach (var p in director.Players)
+            {
+                if (!p.Racing || p.Marble == null) continue;
+                Vector3 d = p.Marble.transform.position - down;
+                if (Mathf.Abs(d.y) < 1.6f && new Vector2(d.x, d.z).magnitude < HalfWidth + 0.4f)
+                {
+                    director.Kill(p.Marble, "CRUSHED");
+                    got = true;
+                }
+            }
+            if (!got) Sfx.Play(Sfx.Clip.Thud);
         }
     }
 
