@@ -32,6 +32,8 @@ assets under `Assets/Resources/Mat/`, created by an editor script. See
 | `CourseScript.cs` | the course file format: parse, render, and build |
 | `CourseStore.cs` | where course files live; seeding and fallback |
 | `CourseEditor.cs` | the in-game editor |
+| `Progress.cs` | best times and medals, persisted as JSON |
+| `Ghost.cs` | recording and playback of your best run |
 | `Music.cs` | step sequencer and synth; the whole soundtrack |
 | `MarbleController.cs` | rigidbody marble: camera-relative force, ground detection, speed cap |
 | `IsoCamera.cs` | orthographic 3/4 chase camera with live yaw / tilt / zoom |
@@ -185,6 +187,20 @@ Two properties fall out of it and are worth preserving:
 
 `Level.Anchors` records the cursor position after each source line, which is how
 the editor parks the marble at the piece you are editing.
+
+## Times, medals and ghosts
+
+`Progress` keeps best times in `progress.json`, keyed by course **name** rather
+than index — so reordering the courses, or dropping a new one into the folder,
+does not scramble anyone's records. Medal thresholds are declared by each course
+in its own file, which keeps them editable and keeps the notion of "gold" a
+property of the course rather than a constant in the code.
+
+`Ghost` records the marble's position at a fixed 20 Hz and saves it whenever a
+course best is beaten. Two details make it robust: samples are taken on the
+**course clock** rather than wall time, so playback lines up with your own run
+frame-for-frame; and they are stored in **course space** rather than world space,
+so a ghost survives any change to how the course root is oriented.
 
 ## The cinematic orbit
 

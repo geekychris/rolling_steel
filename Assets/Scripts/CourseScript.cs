@@ -73,7 +73,7 @@ namespace RollingSteel
         {
             "run", "hill", "curve", "chicane", "jog", "slope", "ice", "rough",
             "crumble", "pad", "split", "gap", "step", "jump", "rails",
-            "acid", "pillar", "sweeper", "crusher", "fan", "chaser", "blob", "goal",
+            "acid", "pillar", "sweeper", "crusher", "fan", "boost", "chaser", "blob", "goal",
         };
 
         /// Default arguments for a freshly inserted line.
@@ -100,6 +100,7 @@ namespace RollingSteel
                 case "sweeper": c.Set("x", 0f); c.Set("back", 4f); c.Set("len", 5f); c.Set("speed", 70f); c.Set("h", 0.55f); break;
                 case "crusher": c.Set("x", 0f); c.Set("back", 4f); c.Set("w", 3f); c.Set("period", 2.4f); c.Set("phase", 0f); c.Set("lift", 4.5f); break;
                 case "fan": c.Set("x", 0f); c.Set("back", 3f); c.Set("w", 6f); c.Set("d", 6f); c.Set("push", 16f); break;
+                case "boost": c.Set("x", 0f); c.Set("back", 3f); c.Set("w", 4f); c.Set("d", 5f); c.Set("push", 26f); break;
                 case "chaser": case "blob": c.Set("x", 0f); c.Set("back", 4f); c.Set("range", 20f); c.Set("speed", 9f); break;
                 case "goal": c.Set("d", 9f); break;
             }
@@ -176,6 +177,7 @@ namespace RollingSteel
             string name = "COURSE";
             float time = 60f, width = 9f;
             int decor = 0, music = 1;
+            float gold = 0f, silver = 0f, bronze = 0f;
 
             foreach (var c in cmds)
             {
@@ -186,16 +188,23 @@ namespace RollingSteel
                     case "width": width = First(c, 9f); break;
                     case "decor": decor = Mathf.RoundToInt(First(c, 0f)); break;
                     case "music": music = Mathf.RoundToInt(First(c, 1f)); break;
+                    case "medals":
+                        gold = c.Get("gold", 0f);
+                        silver = c.Get("silver", 0f);
+                        bronze = c.Get("bronze", 0f);
+                        break;
                 }
             }
 
             var b = new CourseBuilder(name, time, width).Theme(decor, music);
+            b.Level.Gold = gold; b.Level.Silver = silver; b.Level.Bronze = bronze;
 
             foreach (var c in cmds)
             {
                 switch (c.Verb)
                 {
                     case "name": case "time": case "width": case "decor": case "music":
+                    case "medals":
                         break;
 
                     case "pad":
@@ -247,6 +256,11 @@ namespace RollingSteel
                     case "fan":
                         b.Fan(c.Get("x", 0f), c.Get("back", 3f), c.Get("w", 6f),
                               c.Get("d", 6f), c.Get("push", 16f));
+                        break;
+
+                    case "boost":
+                        b.Boost(c.Get("x", 0f), c.Get("back", 3f), c.Get("w", 4f),
+                                c.Get("d", 5f), c.Get("push", 26f));
                         break;
 
                     case "chaser":

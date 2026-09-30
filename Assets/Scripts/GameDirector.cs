@@ -23,11 +23,20 @@ namespace RollingSteel
         public float TimeLeft { get; private set; }
         public int LevelIndex { get; private set; }
         public int Deaths { get; private set; }
+        /// Seconds spent on the current course, and on the run so far.
+        public float CourseTime { get; private set; }
+        public float RunTime { get; private set; }
+        public int LastMedal { get; private set; }
+        public float LastCourseTime { get; private set; }
+        public bool LastWasBest { get; private set; }
+        /// Which course the title screen has highlighted.
+        public int TitleSelect { get; private set; }
         public string DeathReason { get; private set; } = "";
         public bool MarbleIsLive => State == GameState.Playing && !Editing;
         public bool Editing => editor != null && editor.Active;
         public float KillY => built?.KillY ?? -200f;
         public Level CurrentLevel => levels[Mathf.Clamp(LevelIndex, 0, levels.Count - 1)];
+        public Level LevelAt(int i) => levels[Mathf.Clamp(i, 0, levels.Count - 1)];
         public int LevelCount => levels.Count;
 
         List<Level> levels;
@@ -42,7 +51,15 @@ namespace RollingSteel
         float stateTimer;
         float lastWarnBeep;
         bool fallWhistle;
-        float cineT;                     // position of the title flyover along the course
+        float cineT;
+        int startedAt;
+
+        // ghost of the best run on this course
+        readonly List<Vector3> ghostRec = new List<Vector3>();
+        float ghostAccum;
+        GhostData ghostData;
+        GameObject ghostGo;
+        Renderer ghostView;                     // position of the title flyover along the course
 
         /// Screen flash, driven by the HUD. Decays on unscaled time.
         public float Flash { get; private set; }
@@ -83,6 +100,7 @@ namespace RollingSteel
                 return;
             }
 
+            Progress.Load();
             Sfx.Init(gameObject);
 
             musicSrc = gameObject.AddComponent<AudioSource>();
@@ -200,6 +218,16 @@ namespace RollingSteel
             rollSrc.Play();
 
             isoCam.Target = go.transform;
+
+            ghostGo = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            ghostGo.name = "Ghost";
+            ghostGo.transform.localScale = Vector3.one * (CourseBuilder.MarbleRadius * 2f);
+            var gcol = ghostGo.GetComponent<Collider>();
+            if (gcol != null) { gcol.enabled = false; Destroy(gcol); }
+            ghostView = ghostGo.GetComponent<MeshRenderer>();
+            ghostView.sharedMaterial = MatLib.Get("Ghost");
+            ghostView.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            ghostView.enabled = false;
         }
 
         void LoadLevel(int index, bool resetClock)
@@ -207,6 +235,12 @@ namespace RollingSteel
             ClearBuilt();
             LevelIndex = index;
             built = LevelBuilder.Build(levels[index]);
+
+            CourseTime = 0f;
+            ghostRec.Clear();
+            ghostAccum = 0f;
+            ghostData = Ghost.Load(levels[index].Name);
+            if (ghostView != null) ghostView.enabled = false;
 
             if (resetClock) TimeLeft = 0f;
             TimeLeft += levels[index].TimeBonus;
@@ -320,6 +354,7 @@ namespace RollingSteel
             switch (State)
             {
                 case GameState.Title:
+                    if (LevelIndex != TitleSelect) { LoadLevel(TitleSelect, resetClock: true); Marble.Frozen = true; }
                     // drift the focus along the course, so it is a flyover of the
                     // whole thing rather than a turntable of one spot
                     cineT = Mathf.Repeat(cineT + Time.unscaledDeltaTime * 0.045f, 1f);
@@ -345,6 +380,8 @@ namespace RollingSteel
                     if (isoCam.Cinematic) isoCam.EndCinematic();
                     break;
             }
+
+            if (State == GameState.Title && ghostView != null) ghostView.enabled = false;
         }
 
         /// A point along the course centreline, 0 at the start and 1 at the goal.
@@ -361,6 +398,10 @@ namespace RollingSteel
         void TickPlaying()
         {
             TimeLeft -= Time.deltaTime;
+            CourseTime += Time.deltaTime;
+            RunTime += Time.deltaTime;
+            RecordGhost();
+            PlayGhost();
 
             if (TimeLeft <= 10f && TimeLeft > 0f && clock - lastWarnBeep > 1f)
             {
@@ -394,6 +435,36 @@ namespace RollingSteel
                 KillMarble("FELL OFF");
         }
 
+        /// Sample the marble on a fixed clock so playback lines up with course
+        /// time, and in course space so the ghost survives any change to how the
+        /// course root is oriented.
+        void RecordGhost()
+        {
+            if (built?.Root == null) return;
+            const float step = 1f / Ghost.Hz;
+
+            ghostAccum += Time.deltaTime;
+            int guard = 0;
+            while (ghostAccum >= step && guard++ < 8)
+            {
+                ghostAccum -= step;
+                ghostRec.Add(built.Root.transform.InverseTransformPoint(Marble.transform.position));
+            }
+        }
+
+        void PlayGhost()
+        {
+            if (ghostGo == null || ghostView == null) return;
+            if (ghostData == null || built?.Root == null) { ghostView.enabled = false; return; }
+
+            if (Ghost.Sample(ghostData, CourseTime, out var local))
+            {
+                ghostGo.transform.position = built.Root.transform.TransformPoint(local);
+                ghostView.enabled = true;
+            }
+            else ghostView.enabled = false;
+        }
+
         void HandleKeys()
         {
             bool go = Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Return)
@@ -419,6 +490,10 @@ namespace RollingSteel
             switch (State)
             {
                 case GameState.Title:
+                    if (Input.GetKeyDown(KeyCode.DownArrow) || Input.GetKeyDown(KeyCode.S))
+                        TitleSelect = Mathf.Min(TitleSelect + 1, levels.Count - 1);
+                    if (Input.GetKeyDown(KeyCode.UpArrow) || Input.GetKeyDown(KeyCode.W))
+                        TitleSelect = Mathf.Max(TitleSelect - 1, 0);
                     if (go) StartRun();
                     break;
                 case GameState.GameOver:
@@ -518,11 +593,15 @@ namespace RollingSteel
                 Debug.Log($"[state] {s} t={clock:0.0} falls={Deaths} clock={TimeLeft:0.0}");
         }
 
-        public void StartRun()
+        public void StartRun() => StartRun(TitleSelect);
+
+        public void StartRun(int from)
         {
             Deaths = 0;
+            RunTime = 0f;
             DeathReason = "";
-            LoadLevel(0, resetClock: true);
+            startedAt = Mathf.Clamp(from, 0, levels.Count - 1);
+            LoadLevel(startedAt, resetClock: true);
             Enter(GameState.Playing);
             Sfx.Play(Sfx.Clip.Start);
         }
@@ -623,6 +702,12 @@ namespace RollingSteel
         public void ReachGoal()
         {
             if (State != GameState.Playing) return;
+
+            LastCourseTime = CourseTime;
+            LastMedal = Progress.MedalFor(CurrentLevel, CourseTime);
+            LastWasBest = Progress.SubmitCourse(CurrentLevel.Name, CourseTime, Deaths);
+            if (LastWasBest) Ghost.Save(CurrentLevel.Name, ghostRec);
+
             Marble.Frozen = true;
             Enter(GameState.LevelClear);
             Sfx.Play(Sfx.Clip.Goal);
@@ -632,6 +717,8 @@ namespace RollingSteel
         {
             if (LevelIndex + 1 >= levels.Count)
             {
+                // a full run only counts if it actually started at the first course
+                if (startedAt == 0) LastWasBest = Progress.SubmitRun(RunTime, Deaths);
                 Enter(GameState.Won);
                 Marble.Frozen = true;
                 return;
@@ -645,7 +732,7 @@ namespace RollingSteel
         /// 0..1 along the current course, for the HUD progress bar. Measured as
         /// distance along the route rather than course-space Z, because a curve
         /// can turn the course through 90 degrees and stop Z increasing at all.
-        public float Progress()
+        public float CourseProgress()
         {
             var path = built?.PathWorld;
             if (path == null || path.Count == 0 || Marble == null) return 0f;

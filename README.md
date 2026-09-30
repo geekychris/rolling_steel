@@ -33,6 +33,7 @@ and what to do when the editor holds the project lock.
 | `Z` / `X` | tilt the camera |
 | mouse wheel, `-` / `=` | zoom |
 | `M` | music on / off |
+| `Up` / `Down` on the title | choose which course to start from |
 | `F1` | open the course editor |
 | `Space` / `Return` | start |
 | `R` | restart the run |
@@ -129,9 +130,31 @@ without reading the banner.
 | **Crushers** | slam down on a cycle. Fatal underneath, in the way the rest of the time |
 | **Fans** | shove you sideways for as long as you are crossing them |
 | **Crumbling deck** | drops away a beat after you touch it, and comes back later. Crossing is free; stopping is not |
+| **Boost strips** | shove you down-course. The reward is speed; the cost is arriving at the next thing with less say in the matter |
 | **Ice** | nearly frictionless. **Sand** kills your speed right when you need it |
 
 ![Obstacles](docs/images/obstacles.png)
+
+## Times, medals and ghosts
+
+Finishing a course records your time. Each course declares its own gold, silver
+and bronze targets in its file, so a medal is a property of the course rather
+than something hard-coded:
+
+```
+medals gold=25 silver=35 bronze=50
+```
+
+Best times are kept between sessions and shown on the title screen, which doubles
+as a course select — `Up`/`Down` to pick, `Space` to start there. Picking course 1
+is the full run with the clock carrying over; picking any other is practice on
+that one course.
+
+![Course select and a medal](docs/images/scoring.png)
+
+Beat your best and the run is saved as a **ghost**: a translucent marble replaying
+that run beside you next time you play the course. Samples are stored in course
+space at 20 Hz, so a ghost stays valid however the course is oriented.
 
 ## Course editor
 

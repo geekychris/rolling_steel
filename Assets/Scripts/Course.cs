@@ -11,7 +11,8 @@ namespace RollingSteel
     ///   Sweeper - rotating arm on a post. Knocks you off if you mistime it.
     ///   Crusher - block that slams down on a cycle. Lethal underneath.
     ///   Fan     - updraught zone that shoves you sideways while you cross it.
-    public enum PropKind { Pillar, Sweeper, Crusher, Fan }
+    ///   Boost   - shoves you *along* the course. Fast line, less control.
+    public enum PropKind { Pillar, Sweeper, Crusher, Fan, Boost }
 
     public enum EnemyKind { Chaser, Wanderer }
 
@@ -68,6 +69,7 @@ namespace RollingSteel
         public Vector3 Spawn;       // course space
         public int DecorTheme;      // which set of floating scenery to scatter
         public int MusicTheme;      // which synthesised track to play
+        public float Gold, Silver, Bronze;   // target times, seconds
 
         public readonly List<Block> Blocks = new List<Block>();
         public readonly List<Ribbon> Ribbons = new List<Ribbon>();
@@ -611,6 +613,23 @@ namespace RollingSteel
 
             InsertAlong(cur + Frame * new Vector3(bypass, 0f, -(centreBack + halfDepth + leadIn)));
             InsertAlong(cur + Frame * new Vector3(bypass, 0f, -(centreBack - halfDepth - 1.5f)));
+        }
+
+        /// A strip that accelerates you down-course. The reward is speed; the
+        /// cost is arriving at the next thing with less say in the matter.
+        public CourseBuilder Boost(float lateral, float back, float width = 4f,
+                                   float depth = 5f, float push = 26f)
+        {
+            Level.Props.Add(new PropSpec
+            {
+                Kind = PropKind.Boost,
+                Pos = cur + Frame * new Vector3(lateral, 0.05f, -(depth * 0.5f + back)),
+                Rot = Frame,
+                Size = width,
+                Depth = depth,
+                Power = push,
+            });
+            return this;
         }
 
         public CourseBuilder Enemy(EnemyKind kind, float lateral, float back, float range = 16f, float speed = 9f)
