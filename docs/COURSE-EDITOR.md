@@ -84,6 +84,7 @@ goal d=9
 | `width` | starting deck width |
 | `decor` | scenery theme: 0 grove, 1 frost, 2 embers, 3 arches, 4 balloons, 5 monoliths |
 | `music` | theme index: 0 title, 1-6 the course themes |
+| `medals` | `gold`, `silver`, `bronze` target times in seconds |
 
 ### Track
 
@@ -113,6 +114,7 @@ goal d=9
 | `sweeper` | `x`, `back`, `len`, `speed` deg/s, `h`, `phase` — rotating arm |
 | `crusher` | `x`, `back`, `w`, `period`, `phase`, `lift` — slams down; fatal underneath |
 | `fan` | `x`, `back`, `w`, `d`, `push` — shoves you sideways; negative `push` flips it |
+| `boost` | `x`, `back`, `w`, `d`, `push` — shoves you down-course |
 | `chaser` | `x`, `back`, `range`, `speed` — steel marble |
 | `blob` | `x`, `back`, `range`, `speed` — green blob; fatal on contact |
 

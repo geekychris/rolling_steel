@@ -84,10 +84,20 @@ namespace RollingSteel
             var rightStyle = new GUIStyle(label) { alignment = TextAnchor.MiddleRight };
             Text(new Rect(0f, 0f, w - 16f * s, barH), $"FALLS  {g.Deaths}", rightStyle, Amber);
 
+            if (g.State != GameState.Title)
+            {
+                var mid = new GUIStyle(small) { alignment = TextAnchor.MiddleCenter };
+                mid.fontSize = Mathf.RoundToInt(15 * s);
+                float best = Progress.BestTime(g.CurrentLevel.Name);
+                string bestTxt = best > 0f ? $"   BEST {Progress.Format(best)}" : "";
+                Text(new Rect(0f, barH + 12f * s, w, 20f * s),
+                     $"{Progress.Format(g.CourseTime)}{bestTxt}", mid, new Color(1f, 1f, 1f, 0.6f));
+            }
+
             // progress along the course
-            float pw = w * 0.5f, px0 = (w - pw) * 0.5f, py = barH + 6f * s, ph = 5f * s;
+            float pw = w * 0.5f, px0 = (w - pw) * 0.5f, py = barH + 4f * s, ph = 4f * s;
             Box(new Rect(px0, py, pw, ph), new Color(1f, 1f, 1f, 0.16f));
-            Box(new Rect(px0, py, pw * g.Progress(), ph), Cyan);
+            Box(new Rect(px0, py, pw * g.CourseProgress(), ph), Cyan);
 
             if (g.State != GameState.Title && !g.Editing)
             {
@@ -102,10 +112,25 @@ namespace RollingSteel
             {
                 case GameState.Title: if (!g.Editing) TitleCard(w, h); break;
                 case GameState.Dying: Banner(w, h, g.DeathReason, Red, "-3 SECONDS"); break;
-                case GameState.LevelClear: Banner(w, h, "COURSE CLEAR", Green, "TIME CARRIES OVER"); break;
+                case GameState.LevelClear: ClearBanner(g, w, h); break;
                 case GameState.GameOver: Banner(w, h, "OUT OF TIME", Red, "SPACE / R  TO TRY AGAIN"); break;
-                case GameState.Won: Banner(w, h, "ALL COURSES CLEAR", Green, $"FALLS: {g.Deaths}   -   SPACE TO PLAY AGAIN"); break;
+                case GameState.Won:
+                    Banner(w, h, "ALL COURSES CLEAR", Green,
+                           $"{Progress.Format(g.RunTime)}   FALLS {g.Deaths}" +
+                           (g.LastWasBest ? "   -   NEW BEST RUN" : "") + "   -   SPACE TO PLAY AGAIN");
+                    break;
             }
+        }
+
+        void ClearBanner(GameDirector g, float w, float h)
+        {
+            string medal = Progress.MedalName(g.LastMedal);
+            string sub = Progress.Format(g.LastCourseTime);
+            if (medal.Length > 0) sub += "   " + medal;
+            if (g.LastWasBest) sub += "   -   NEW BEST";
+
+            Color c = g.LastMedal > 0 ? Progress.MedalColor(g.LastMedal) : Green;
+            Banner(w, h, "COURSE CLEAR", c, sub);
         }
 
         void Banner(float w, float h, string title, Color c, string sub)
@@ -120,31 +145,58 @@ namespace RollingSteel
         {
             Box(new Rect(0f, 0f, w, h), new Color(0.02f, 0.03f, 0.07f, 0.42f));   // let the flyover through
 
-            Text(new Rect(0f, h * 0.24f, w, 70f * s), "ROLLING STEEL", huge, Amber);
-            Text(new Rect(0f, h * 0.24f + 62f * s, w, 30f * s), "six courses, one clock", small, Cyan);
+            var g = GameDirector.Instance;
 
-            string[] lines =
-            {
-                "WASD  or  ARROW KEYS   -   push the marble",
-                "Q / E  turn the view      Z / X  tilt      WHEEL  zoom",
-                "steering follows the camera, so turn it to suit the course",
-                "",
-                "the marble has momentum: steer early, brake early",
-                "avoid the acid, the blobs and the steel marbles",
-                "falling costs you 3 seconds   -   the clock never stops",
-                "",
-                "M  music       F1  course editor       R  restart      ESC  quit",
-            };
+            Text(new Rect(0f, h * 0.10f, w, 70f * s), "ROLLING STEEL", huge, Amber);
+            Text(new Rect(0f, h * 0.10f + 62f * s, w, 30f * s),
+                 "six courses, one clock", small, Cyan);
 
-            float y = h * 0.46f;
-            foreach (var line in lines)
+            // course select
+            float rowH = 26f * s, listW = 470f * s, x0 = (w - listW) * 0.5f;
+            float y = h * 0.30f;
+
+            var nameStyle = new GUIStyle(small) { alignment = TextAnchor.MiddleLeft };
+            var timeStyle = new GUIStyle(small) { alignment = TextAnchor.MiddleRight };
+            nameStyle.fontSize = timeStyle.fontSize = Mathf.RoundToInt(17 * s);
+
+            for (int i = 0; i < g.LevelCount; i++)
             {
-                Text(new Rect(0f, y, w, 26f * s), line, small, new Color(1f, 1f, 1f, 0.82f));
-                y += 28f * s;
+                var lvl = g.LevelAt(i);
+                bool sel = i == g.TitleSelect;
+                if (sel) Box(new Rect(x0 - 10f * s, y, listW + 20f * s, rowH),
+                             new Color(0.25f, 0.5f, 0.75f, 0.45f));
+
+                float best = Progress.BestTime(lvl.Name);
+                int medal = Progress.MedalFor(lvl, best);
+
+                Text(new Rect(x0, y, listW * 0.6f, rowH), $"{i + 1}   {lvl.Name}", nameStyle,
+                     sel ? Color.white : new Color(1f, 1f, 1f, 0.75f));
+                Text(new Rect(x0, y, listW * 0.85f, rowH), Progress.Format(best), timeStyle,
+                     best > 0f ? Amber : new Color(1f, 1f, 1f, 0.3f));
+                Text(new Rect(x0, y, listW, rowH), Progress.MedalName(medal), timeStyle,
+                     Progress.MedalColor(medal));
+                y += rowH;
             }
 
+            y += 14f * s;
+            if (Progress.BestRunTime > 0f)
+            {
+                Text(new Rect(0f, y, w, 24f * s),
+                     $"BEST FULL RUN   {Progress.Format(Progress.BestRunTime)}   " +
+                     $"({Progress.BestRunFalls} falls)", small, Cyan);
+                y += 26f * s;
+            }
+
+            Text(new Rect(0f, y, w, 24f * s),
+                 "UP / DOWN  choose course       SPACE  start from there",
+                 small, new Color(1f, 1f, 1f, 0.7f));
+            y += 24f * s;
+            Text(new Rect(0f, y, w, 24f * s),
+                 "WASD push   Q/E turn view   Z/X tilt   WHEEL zoom   M music   F1 editor",
+                 small, new Color(1f, 1f, 1f, 0.5f));
+
             float pulse = 0.6f + 0.4f * Mathf.Sin(Time.unscaledTime * 3.2f);
-            Text(new Rect(0f, h * 0.8f, w, 40f * s), "PRESS  SPACE  TO  START", big,
+            Text(new Rect(0f, h * 0.86f, w, 40f * s), "PRESS  SPACE  TO  START", big,
                  new Color(Green.r, Green.g, Green.b, pulse));
         }
     }

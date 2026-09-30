@@ -42,6 +42,7 @@ public static class ProjectSetup
         Mat("Acid", new Color(0.24f, 0.92f, 0.34f), 0.00f, 0.80f, new Color(0.10f, 0.45f, 0.13f));
         Mat("Goal", new Color(1.00f, 0.82f, 0.20f), 0.10f, 0.60f, new Color(0.55f, 0.38f, 0.05f));
         Mat("Start", new Color(0.26f, 0.55f, 1.00f), 0.10f, 0.50f, new Color(0.06f, 0.16f, 0.42f));
+        Fade("Ghost", new Color(0.55f, 0.95f, 1.00f, 0.38f), 0.25f, 0.85f);
         Mat("Marble", new Color(0.86f, 0.88f, 0.93f), 0.95f, 0.86f);
         Mat("Steel", new Color(0.33f, 0.34f, 0.39f), 0.90f, 0.70f);
         Mat("Blob", new Color(0.34f, 0.94f, 0.40f), 0.00f, 0.30f, new Color(0.09f, 0.42f, 0.11f));
@@ -50,6 +51,7 @@ public static class ProjectSetup
         Mat("Crumble", new Color(0.72f, 0.52f, 0.28f), 0.00f, 0.15f);
         Mat("Danger", new Color(0.72f, 0.20f, 0.18f), 0.35f, 0.45f, new Color(0.22f, 0.03f, 0.02f));
         Mat("Prop", new Color(0.38f, 0.40f, 0.46f), 0.55f, 0.50f);
+        Mat("Boost", new Color(0.45f, 1.00f, 0.35f), 0.00f, 0.70f, new Color(0.12f, 0.45f, 0.08f));
         Mat("Fan", new Color(0.72f, 0.35f, 1.00f), 0.00f, 0.70f, new Color(0.30f, 0.08f, 0.48f));  // violet, so it is not mistaken for ice
 
         // floating scenery
@@ -60,6 +62,32 @@ public static class ProjectSetup
         Mat("Glow", new Color(1.00f, 0.66f, 0.28f), 0.00f, 0.55f, new Color(0.60f, 0.30f, 0.06f));
         Mat("Pale", new Color(0.82f, 0.88f, 0.96f), 0.05f, 0.40f);
         Mat("Candy", new Color(1.00f, 0.38f, 0.66f), 0.00f, 0.60f, new Color(0.40f, 0.06f, 0.22f));
+    }
+
+    /// A see-through material. The Standard shader needs its blend state set by
+    /// hand for this; setting the colour's alpha alone does nothing.
+    static void Fade(string name, Color col, float metallic, float smooth)
+    {
+        var shader = Shader.Find("Standard");
+        if (shader == null) return;
+
+        var m = new Material(shader) { name = name };
+        m.SetColor("_Color", col);
+        m.SetFloat("_Metallic", metallic);
+        m.SetFloat("_Glossiness", smooth);
+        m.SetFloat("_Mode", 2f);                    // Fade
+        m.SetOverrideTag("RenderType", "Transparent");
+        m.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        m.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        m.SetFloat("_ZWrite", 0f);
+        m.DisableKeyword("_ALPHATEST_ON");
+        m.EnableKeyword("_ALPHABLEND_ON");
+        m.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+        m.renderQueue = 3000;
+
+        string path = $"{MatDir}/{name}.mat";
+        AssetDatabase.DeleteAsset(path);
+        AssetDatabase.CreateAsset(m, path);
     }
 
     static void Mat(string name, Color col, float metallic, float smooth, Color? emission = null)

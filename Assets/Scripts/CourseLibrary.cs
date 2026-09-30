@@ -22,6 +22,7 @@ namespace RollingSteel
         // ---- 1 ------------------------------------------------------------
         public const string Practice = @"
 name PRACTICE
+medals gold=25 silver=35 bronze=50
 time 75
 width 10
 decor 0
@@ -45,6 +46,7 @@ split len=15 side=3 pit=3.5         # pit down the middle
 run len=9 w=8
 rails
 hill len=15 drop=5 w=7
+boost x=0 back=9 w=4 d=5 push=24     # faster line, less say in what happens next
 chaser x=0 back=4 range=18 speed=8
 run len=12 w=6
 rails
@@ -54,6 +56,7 @@ goal d=9
         // ---- 2 ------------------------------------------------------------
         public const string Beginner = @"
 name BEGINNER
+medals gold=36 silver=48 bronze=65
 time 70
 width 9
 decor 1
@@ -98,6 +101,7 @@ goal d=9
         // ---- 3 ------------------------------------------------------------
         public const string Intermediate = @"
 name INTERMEDIATE
+medals gold=42 silver=52 bronze=63
 time 65
 width 8
 decor 2
@@ -148,6 +152,7 @@ goal d=9
         // Thin air. Long exposed spans, three jumps, and very little kerbing.
         public const string Aerial = @"
 name AERIAL
+medals gold=38 silver=47 bronze=58
 time 60
 width 8
 decor 3
@@ -169,6 +174,7 @@ blob x=0 back=4 range=999 speed=6
 
 curve r=12 a=-60 drop=2 w=5 bank=15
 run len=16 w=4.6                    # second span
+boost x=0 back=12 w=3.4 d=5 push=26
 crumble len=7 w=5
 
 run len=11 w=9
@@ -193,6 +199,7 @@ goal d=9
         // Everything moves. Crushers, fans and a sweeper, on generous deck.
         public const string Silly = @"
 name SILLY
+medals gold=34 silver=44 bronze=55
 time 58
 width 9
 decor 4
@@ -240,6 +247,7 @@ goal d=9
         // All of it, with the clock at its meanest.
         public const string Ultimate = @"
 name ULTIMATE
+medals gold=40 silver=48 bronze=55
 time 56
 width 8
 decor 5
@@ -273,6 +281,7 @@ pillar x=3 back=3 r=0.8 h=2.4
 run len=7 w=13
 split len=16 side=3.4 pit=5
 run len=10 w=9
+boost x=-3 back=6 w=3.4 d=5 push=28  # the quick way past the sweeper
 sweeper x=5 back=5 len=7 speed=120
 
 crumble len=10 w=9

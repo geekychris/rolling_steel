@@ -279,7 +279,8 @@ namespace RollingSteel
                 case PropKind.Pillar: BuildPillar(host.transform, spec); break;
                 case PropKind.Sweeper: BuildSweeper(host.transform, spec); break;
                 case PropKind.Crusher: BuildCrusher(host.transform, spec, root); break;
-                case PropKind.Fan: BuildFan(host.transform, spec); break;
+                case PropKind.Fan: BuildFan(host.transform, spec, false); break;
+                case PropKind.Boost: BuildFan(host.transform, spec, true); break;
             }
         }
 
@@ -345,10 +346,10 @@ namespace RollingSteel
             crusher.Init(block.transform.position);
         }
 
-        static void BuildFan(Transform host, PropSpec spec)
+        static void BuildFan(Transform host, PropSpec spec, bool forward)
         {
             var pad = Piece(host, PrimitiveType.Cube, Vector3.zero,
-                            new Vector3(spec.Size, 0.1f, spec.Depth), "Fan");
+                            new Vector3(spec.Size, 0.1f, spec.Depth), forward ? "Boost" : "Fan");
             pad.GetComponent<MeshRenderer>().shadowCastingMode =
                 UnityEngine.Rendering.ShadowCastingMode.Off;
             pad.GetComponent<Collider>().enabled = false;
@@ -362,7 +363,7 @@ namespace RollingSteel
             box.size = new Vector3(spec.Size, 2.4f, spec.Depth);
 
             var fan = zone.AddComponent<FanZone>();
-            fan.Push = host.right * Mathf.Sign(spec.Power);
+            fan.Push = (forward ? host.forward : host.right) * Mathf.Sign(spec.Power);
             fan.Power = Mathf.Abs(spec.Power);
         }
 
