@@ -12,7 +12,7 @@ namespace RollingSteel
         public readonly List<string> Keys = new List<string>();     // ordered, for the editor
         public readonly List<float> Values = new List<float>();
         public readonly List<string> Flags = new List<string>();
-        public string Text = "";                                    // for `name`
+        public string Text = "";                                    // for `name` and `seed`
         public string Comment = "";
 
         public float Get(string key, float fallback)
@@ -50,7 +50,7 @@ namespace RollingSteel
         public override string ToString()
         {
             var sb = new StringBuilder(Verb);
-            if (Verb == "name") return "name " + Text;
+            if (Verb == "name" || Verb == "seed") return Verb + " " + Text;
 
             // headers read better bare: `time 75`, not `time v=75`
             if (IsHeader && Keys.Count == 1 && Keys[0] == "v")
@@ -129,7 +129,8 @@ namespace RollingSteel
                 var parts = line.Split(new[] { ' ', '\t' }, System.StringSplitOptions.RemoveEmptyEntries);
                 var cmd = new Cmd { Verb = parts[0].ToLowerInvariant(), Comment = comment };
 
-                if (cmd.Verb == "name")
+                // `seed` is an integer too big for a float, so it is kept as text
+                if (cmd.Verb == "name" || cmd.Verb == "seed")
                 {
                     cmd.Text = line.Substring(parts[0].Length).Trim();
                     list.Add(cmd);
@@ -177,6 +178,7 @@ namespace RollingSteel
             string name = "COURSE";
             float time = 60f, width = 9f;
             int decor = 0, music = 1;
+            int? seed = null;
             float gold = 0f, silver = 0f, bronze = 0f;
 
             foreach (var c in cmds)
@@ -188,6 +190,9 @@ namespace RollingSteel
                     case "width": width = First(c, 9f); break;
                     case "decor": decor = Mathf.RoundToInt(First(c, 0f)); break;
                     case "music": music = Mathf.RoundToInt(First(c, 1f)); break;
+                    case "seed":
+                        if (int.TryParse(c.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var sd)) seed = sd;
+                        break;
                     case "medals":
                         gold = c.Get("gold", 0f);
                         silver = c.Get("silver", 0f);
@@ -198,13 +203,14 @@ namespace RollingSteel
 
             var b = new CourseBuilder(name, time, width).Theme(decor, music);
             b.Level.Gold = gold; b.Level.Silver = silver; b.Level.Bronze = bronze;
+            b.Level.DecorSeed = seed;
 
             foreach (var c in cmds)
             {
                 switch (c.Verb)
                 {
                     case "name": case "time": case "width": case "decor": case "music":
-                    case "medals":
+                    case "medals": case "seed":
                         break;
 
                     case "pad":

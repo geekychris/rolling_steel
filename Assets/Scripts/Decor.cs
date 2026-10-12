@@ -38,7 +38,7 @@ namespace RollingSteel
             if (path.Count < 4) return;
 
             // seeded, so a course looks the same every run (and in screenshots)
-            var rng = new System.Random(lvl.Name.GetHashCode() ^ (lvl.DecorTheme * 7919));
+            var rng = new System.Random((lvl.DecorSeed ?? lvl.Name.GetHashCode()) ^ (lvl.DecorTheme * 7919));
 
             for (int i = 0; i < PerLevel; i++)
             {
@@ -162,7 +162,7 @@ namespace RollingSteel
                  Quaternion.Euler(Rand(rng, -25f, 25f), 0f, Rand(rng, -25f, 25f)), "Glow");
         }
 
-        // ---- theme 3: aerial -------------------------------------------
+        // ---- theme 3: sky -----------------------------------------------
 
         static void Arch(Transform t, System.Random rng)
         {
@@ -183,7 +183,7 @@ namespace RollingSteel
                  new Vector3(r * 0.72f, 0.16f, r * 0.72f), rot, "Pale");
         }
 
-        // ---- theme 4: silly --------------------------------------------
+        // ---- theme 4: toys ---------------------------------------------
 
         static void Candy(Transform t, System.Random rng)
         {

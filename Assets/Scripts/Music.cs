@@ -75,12 +75,12 @@ namespace RollingSteel
         {
             switch (index)
             {
-                case 1: return Practice();
-                case 2: return Beginner();
-                case 3: return Intermediate();
-                case 4: return Aerial();
-                case 5: return Silly();
-                case 6: return Ultimate();
+                case 1: return WarmUp();
+                case 2: return FirstDrop();
+                case 3: return Switchback();
+                case 4: return Skyway();
+                case 5: return TopsyTurvy();
+                case 6: return TheGauntlet();
                 default: return Title();
             }
         }
@@ -134,8 +134,8 @@ namespace RollingSteel
             return s;
         }
 
-        // 1 - practice: bouncy and bright
-        static Song Practice()
+        // 1 - warm-up: bouncy and bright
+        static Song WarmUp()
         {
             var s = new Song { Bpm = 122f, Root = 57, Swing = 0.14f };
 
@@ -177,8 +177,8 @@ namespace RollingSteel
             return s;
         }
 
-        // 2 - beginner: driving
-        static Song Beginner()
+        // 2 - first drop: driving
+        static Song FirstDrop()
         {
             var s = new Song { Bpm = 134f, Root = 50, Swing = 0.08f };   // D3
 
@@ -220,8 +220,8 @@ namespace RollingSteel
             return s;
         }
 
-        // 3 - intermediate: darker and faster
-        static Song Intermediate()
+        // 3 - switchback: darker and faster
+        static Song Switchback()
         {
             var s = new Song { Bpm = 144f, Root = 54, Swing = 0f };      // F#3
 
@@ -263,8 +263,8 @@ namespace RollingSteel
             return s;
         }
 
-        // 4 - aerial: high, airy, lots of space under it
-        static Song Aerial()
+        // 4 - skyway: high, airy, lots of space under it
+        static Song Skyway()
         {
             var s = new Song { Bpm = 126f, Root = 52, Swing = 0.12f };      // E3
 
@@ -302,8 +302,8 @@ namespace RollingSteel
             return s;
         }
 
-        // 5 - silly: major key, bouncy, deliberately daft
-        static Song Silly()
+        // 5 - topsy-turvy: major key, bouncy, deliberately daft
+        static Song TopsyTurvy()
         {
             var s = new Song
             {
@@ -349,8 +349,8 @@ namespace RollingSteel
             return s;
         }
 
-        // 6 - ultimate: relentless, and not friendly about it
-        static Song Ultimate()
+        // 6 - the gauntlet: relentless, and not friendly about it
+        static Song TheGauntlet()
         {
             var s = new Song { Bpm = 160f, Root = 47, Swing = 0f };         // B2
 

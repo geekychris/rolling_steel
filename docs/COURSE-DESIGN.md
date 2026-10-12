@@ -18,7 +18,7 @@ never type a coordinate. `Curve()` turns the heading, and everything after it is
 laid out in the new direction.
 
 ```
-name PRACTICE
+name WARM-UP
 time 75
 width 10
 
