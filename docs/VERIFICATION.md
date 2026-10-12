@@ -10,11 +10,11 @@ make verify
 
 ```
 --- progression ---
-[level] 1/3 PRACTICE clock=75.0
+[level] 1/3 WARM-UP clock=75.0
 [state] LevelClear t=15.2 falls=0 clock=59.8
-[level] 2/3 BEGINNER clock=129.8
+[level] 2/3 FIRST DROP clock=129.8
 [state] LevelClear t=36.6 falls=0 clock=110.6
-[level] 3/3 INTERMEDIATE clock=175.6
+[level] 3/3 SWITCHBACK clock=175.6
 [state] LevelClear t=66.0 falls=3 clock=142.2
 [state] Won t=68.2 falls=3 clock=142.2
 --- falls: 3 ---
@@ -42,6 +42,7 @@ for i in 1 2 3 4; do make verify || break; done
 | `-quitafter SECS` | exit after this many seconds |
 | `-yaw DEG` | initial camera yaw |
 | `-dumpmusic DIR` | render every theme to a WAV and exit |
+| `-editat SECS` | open the course editor at that moment, for capturing it |
 | `-mute` | start with music off |
 | `-killat SECS` | force a wipeout, for capturing the death effects |
 | `-shotat T1,T2,…` | override the screenshot schedule |
@@ -132,13 +133,18 @@ scripts/run.sh -demo -killat 6.0 -shotat 6.08,6.3,6.8,7.4 -shots ./shots/death -
 Worth remembering that `make shots` clears the output directory first, so a
 hand-captured sequence wants its own folder or it will be deleted by the next run.
 
+`scripts/docshots.py` builds the whole README gallery this way: one demo run
+with a screenshot every second, plus short runs for the camera angles, a
+forced wipeout, two players and the editor, tiled and captioned with Pillow.
+It backs up the player's save folder first and restores it afterwards.
+
 ## Log lines
 
 The player writes structured lines to its log, which is what makes failures
 diagnosable rather than merely visible:
 
 ```
-[level]   1/3 PRACTICE clock=75.0
+[level]   1/3 WARM-UP clock=75.0
 [state]   LevelClear t=15.2 falls=0 clock=59.8
 [death]   FELL OFF course=3 z=122.8 x=-7.0 y=-34.0 lastGround(z=119.9 x=-7.5 y=-10.5)
 ```

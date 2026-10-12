@@ -24,6 +24,7 @@ namespace RollingSteel
             {
                 Directory.CreateDirectory(Dir);
                 SeedMissing();
+                RenameOld();
             }
             catch (IOException e)
             {
@@ -54,6 +55,50 @@ namespace RollingSteel
                 written++;
             }
             if (written > 0) Debug.Log($"[courses] seeded {written} course file(s) into {Dir}");
+        }
+
+        /// Built-in courses that have been renamed: old name, new name, and the
+        /// scenery seed the old name hashed to. Saves keyed by name (best times,
+        /// ghosts, seeded course files) are carried over on first run.
+        public static readonly (string from, string to, int seed)[] Renamed =
+        {
+            ("PRACTICE", "WARM-UP", 1100716507), ("BEGINNER", "FIRST DROP", 1770843060),
+            ("INTERMEDIATE", "SWITCHBACK", 1279180289), ("AERIAL", "SKYWAY", -835804624),
+            ("SILLY", "TOPSY-TURVY", -212541437), ("ULTIMATE", "THE GAUNTLET", -1679118255),
+        };
+
+        /// Course files seeded by an older build carry the old names. Swap in the
+        /// new name, plus a `seed` line so the scenery stays as it was; nothing
+        /// else in the file is touched.
+        static void RenameOld()
+        {
+            foreach (var file in Files())
+            {
+                try
+                {
+                    var lines = new List<string>(File.ReadAllLines(file));
+                    for (int i = 0; i < lines.Count; i++)
+                    {
+                        string t = lines[i].Trim();
+                        if (!t.StartsWith("name ")) continue;
+                        foreach (var r in Renamed)
+                            if (t == "name " + r.from)
+                            {
+                                lines[i] = "name " + r.to;
+                                if (!lines.Exists(l => l.Trim().StartsWith("seed ")))
+                                    lines.Insert(i + 1, "seed " + r.seed);
+                                File.WriteAllLines(file, lines);
+                                Debug.Log($"[courses] renamed {r.from} -> {r.to} in {file}");
+                                break;
+                            }
+                        break;
+                    }
+                }
+                catch (IOException e)
+                {
+                    Debug.LogWarning($"[courses] cannot update {file}: {e.Message}");
+                }
+            }
         }
 
         public static string PathFor(int index)

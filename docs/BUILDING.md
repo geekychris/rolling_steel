@@ -42,6 +42,7 @@ scripts/build.sh                      # default output path
 scripts/build.sh /tmp/Test.app        # custom output path
 scripts/run.sh -autostart             # extra args go through to the player
 scripts/verify.sh 180                 # allow a longer headless run
+python3 scripts/docshots.py           # regenerate docs/images/ from the build (needs Pillow)
 ```
 
 ## First build

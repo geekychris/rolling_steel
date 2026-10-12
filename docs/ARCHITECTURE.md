@@ -156,7 +156,7 @@ collider and a deck makes it roll.
 
 `Music.cs` is a small step sequencer (16 steps a bar, eight bars) feeding a
 handful of synth voices. There are seven themes — a title track and one per
-course, each in its own key and tempo, one of them in a major key because Silly
+course, each in its own key and tempo, one of them in a major key because Topsy-Turvy
 earns it: saw with a one-pole lowpass for the bass, variable-duty
 pulse for the arpeggio, two-operator FM for the lead, and shaped noise for the
 drums. Each theme renders into a `float[]`, is normalised and soft-clipped,

@@ -83,7 +83,7 @@ namespace RollingSteel
         string shotDir, musicDumpDir, coursesDir;
         float quitAfter = -1f;
         float[] shotTimes = { 1f, 6f, 11f, 20f, 27f, 33f, 45f, 54f, 62f, 67.5f };
-        float killAt = -1f;
+        float killAt = -1f, editAt = -1f;
         bool killTriggered;
         int nextShot;
         float clock;
@@ -160,6 +160,7 @@ namespace RollingSteel
                     // so the death effects can be captured without waiting for the
                     // demo driver to make a mistake.
                     case "-killat": if (i + 1 < a.Length) float.TryParse(a[++i], out killAt); break;
+                    case "-editat": if (i + 1 < a.Length) float.TryParse(a[++i], out editAt); break;
                     case "-shotat":
                         if (i + 1 < a.Length)
                         {
@@ -325,6 +326,8 @@ namespace RollingSteel
 
             HandleKeys();
             HandleCapture();
+
+            if (editAt > 0f && clock >= editAt && !Editing) { editAt = -1f; editor.Toggle(); }
 
             if (killAt > 0f && !killTriggered && clock >= killAt && State == GameState.Playing)
             {

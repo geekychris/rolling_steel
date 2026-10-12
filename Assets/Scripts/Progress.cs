@@ -45,6 +45,22 @@ namespace RollingSteel
                 Debug.LogWarning($"[progress] could not read {path}: {e.Message}");
                 data = new ProgressData();
             }
+            Migrate();
+        }
+
+        /// Records are keyed by name, so carry renamed courses' times over
+        /// (CourseStore.Renamed) rather than orphaning them.
+        static void Migrate()
+        {
+            bool changed = false;
+            foreach (var r in CourseStore.Renamed)
+            {
+                var old = For(r.from, false);
+                if (old == null || For(r.to, false) != null) continue;
+                old.name = r.to;
+                changed = true;
+            }
+            if (changed) Save();
         }
 
         static void Save()
