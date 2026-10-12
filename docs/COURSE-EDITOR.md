@@ -58,7 +58,7 @@ One line per piece. A verb, then named numbers, then bare flags. `#` starts a
 comment, and comments survive a round trip through the editor.
 
 ```
-name PRACTICE
+name WARM-UP
 time 75
 width 10
 decor 0
@@ -85,6 +85,7 @@ goal d=9
 | `decor` | scenery theme: 0 grove, 1 frost, 2 embers, 3 arches, 4 balloons, 5 monoliths |
 | `music` | theme index: 0 title, 1-6 the course themes |
 | `medals` | `gold`, `silver`, `bronze` target times in seconds |
+| `seed` | optional integer that seeds the floating scenery; without it the name is hashed, so give a renamed course its old seed to keep its look |
 
 ### Track
 

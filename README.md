@@ -58,12 +58,12 @@ Six, each with its own scenery theme and its own synthesised track.
 
 | # | Name | Clock | What it throws at you |
 |---|------|-------|----------------------|
-| 1 | Practice | 75 s | wide and kerbed, one pit, a pillar, one steel marble |
-| 2 | Beginner | +70 s | ice, acid, a jump, a fan, an edge-pivoted sweeper |
-| 3 | Intermediate | +65 s | exposed catwalks, a steep ice drop, a crusher, an acid slalom, sand |
-| 4 | Aerial | +60 s | long spans with nothing either side, three jumps, very little kerbing |
-| 5 | Silly | +58 s | everything moves — paired crushers, fans blowing both ways, a fast sweeper |
-| 6 | Ultimate | +56 s | all of it, with the clock at its meanest |
+| 1 | Warm-up | 75 s | wide and kerbed, one pit, a pillar, one steel marble |
+| 2 | First Drop | +70 s | ice, acid, a jump, a fan, an edge-pivoted sweeper |
+| 3 | Switchback | +65 s | exposed catwalks, a steep ice drop, a crusher, an acid slalom, sand |
+| 4 | Skyway | +60 s | long spans with nothing either side, three jumps, very little kerbing |
+| 5 | Topsy-Turvy | +58 s | everything moves — paired crushers, fans blowing both ways, a fast sweeper |
+| 6 | The Gauntlet | +56 s | all of it, with the clock at its meanest |
 
 Time **carries over** between courses and never stops. Falling costs 3 seconds
 and puts you back on the course just behind where you last had contact. Running
@@ -101,12 +101,12 @@ No audio files anywhere in the repo. `M` toggles it.
 
 | Course | Key | Tempo | |
 |---|---|---|---|
-| Practice | A minor | 122 | bouncy and bright |
-| Beginner | D minor | 134 | driving |
-| Intermediate | F# minor | 144 | darker and faster |
-| Aerial | E minor | 126 | airy, bells over a pad |
-| Silly | C **major** | 152 | deliberately daft |
-| Ultimate | B minor | 160 | relentless |
+| Warm-up | A minor | 122 | bouncy and bright |
+| First Drop | D minor | 134 | driving |
+| Switchback | F# minor | 144 | darker and faster |
+| Skyway | E minor | 126 | airy, bells over a pad |
+| Topsy-Turvy | C **major** | 152 | deliberately daft |
+| The Gauntlet | B minor | 160 | relentless |
 
 ## Wipeouts
 

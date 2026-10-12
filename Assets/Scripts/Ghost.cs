@@ -33,7 +33,13 @@ namespace RollingSteel
             try
             {
                 string p = PathFor(course);
-                if (!File.Exists(p)) return null;
+                if (!File.Exists(p))
+                {
+                    // a ghost saved under the course's old name comes along
+                    foreach (var r in CourseStore.Renamed)
+                        if (r.to == course && File.Exists(PathFor(r.from))) File.Move(PathFor(r.from), p);
+                    if (!File.Exists(p)) return null;
+                }
                 var d = JsonUtility.FromJson<GhostData>(File.ReadAllText(p));
                 return d != null && d.p.Count > 1 ? d : null;
             }

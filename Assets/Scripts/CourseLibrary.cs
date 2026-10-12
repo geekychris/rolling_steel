@@ -17,11 +17,12 @@ namespace RollingSteel
         }
 
         public static readonly string[] Sources =
-            { Practice, Beginner, Intermediate, Aerial, Silly, Ultimate };
+            { WarmUp, FirstDrop, Switchback, Skyway, TopsyTurvy, TheGauntlet };
 
         // ---- 1 ------------------------------------------------------------
-        public const string Practice = @"
-name PRACTICE
+        public const string WarmUp = @"
+name WARM-UP
+seed 1100716507
 medals gold=25 silver=35 bronze=50
 time 75
 width 10
@@ -54,8 +55,9 @@ goal d=9
 ";
 
         // ---- 2 ------------------------------------------------------------
-        public const string Beginner = @"
-name BEGINNER
+        public const string FirstDrop = @"
+name FIRST DROP
+seed 1770843060
 medals gold=36 silver=48 bronze=65
 time 70
 width 9
@@ -99,8 +101,9 @@ goal d=9
 ";
 
         // ---- 3 ------------------------------------------------------------
-        public const string Intermediate = @"
-name INTERMEDIATE
+        public const string Switchback = @"
+name SWITCHBACK
+seed 1279180289
 medals gold=42 silver=52 bronze=63
 time 65
 width 8
@@ -150,8 +153,9 @@ goal d=9
 
         // ---- 4 ------------------------------------------------------------
         // Thin air. Long exposed spans, three jumps, and very little kerbing.
-        public const string Aerial = @"
-name AERIAL
+        public const string Skyway = @"
+name SKYWAY
+seed -835804624
 medals gold=38 silver=47 bronze=58
 time 60
 width 8
@@ -197,8 +201,9 @@ goal d=9
 
         // ---- 5 ------------------------------------------------------------
         // Everything moves. Crushers, fans and a sweeper, on generous deck.
-        public const string Silly = @"
-name SILLY
+        public const string TopsyTurvy = @"
+name TOPSY-TURVY
+seed -212541437
 medals gold=34 silver=44 bronze=55
 time 58
 width 9
@@ -245,8 +250,9 @@ goal d=9
 
         // ---- 6 ------------------------------------------------------------
         // All of it, with the clock at its meanest.
-        public const string Ultimate = @"
-name ULTIMATE
+        public const string TheGauntlet = @"
+name THE GAUNTLET
+seed -1679118255
 medals gold=40 silver=48 bronze=55
 time 56
 width 8

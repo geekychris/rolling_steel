@@ -69,6 +69,9 @@ namespace RollingSteel
         public Vector3 Spawn;       // course space
         public int DecorTheme;      // which set of floating scenery to scatter
         public int MusicTheme;      // which synthesised track to play
+        /// Seeds the floating scenery. Null means "hash the name"; a `seed` line
+        /// in the course keeps the scenery when a course is renamed.
+        public int? DecorSeed;
         public float Gold, Silver, Bronze;   // target times, seconds
 
         public readonly List<Block> Blocks = new List<Block>();
