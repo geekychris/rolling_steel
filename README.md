@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="Rolling Steel logo" width="180">
+</p>
+
 # Rolling Steel
 
 An isometric roll-a-marble-downhill game for macOS, built in Unity 6.3 — six
